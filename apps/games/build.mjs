@@ -11,7 +11,8 @@ process.chdir(dirname(fileURLToPath(import.meta.url)));
 
 const swTemplate = readFileSync('tools/sw.template.js', 'utf8');
 const raw = readFileSync('src/app.html', 'utf8');
-const version = createHash('sha256').update(raw + swTemplate + readFileSync('build.mjs', 'utf8')).digest('hex').slice(0, 10);
+const cloud = readFileSync('../../shared/cloud.js', 'utf8'); // auto backup, shared by all apps
+const version = createHash('sha256').update(raw + swTemplate + cloud + readFileSync('build.mjs', 'utf8')).digest('hex').slice(0, 10);
 const src = raw.replaceAll('__APP_VERSION__', version);
 const title = (src.match(/<title>([\s\S]*?)<\/title>/) || [, '게임'])[1];
 const style = src.match(/<style>[\s\S]*?<\/style>/)[0];
@@ -46,7 +47,7 @@ body{margin:0;-webkit-touch-callout:none}
 ${style}
 </head>
 <body>
-${body}
+${body.replace('<!--CLOUD-->', () => `<script>\n${cloud}\n</script>`)}
 <script>
 if('serviceWorker' in navigator){
   // A new version takes over when the server has one; reload into it, but never while a sheet is open.

@@ -347,6 +347,10 @@ button.g-row:active{opacity:.6}
     </div>
   </div>
   <div class="sgroup">
+    <h3>자동 백업</h3>
+    <div id="cloudBox"></div>
+  </div>
+  <div class="sgroup">
     <h3>데이터</h3>
     <label class="srow" for="importFile">
       <span><b>백업 가져오기</b><small>JSON 백업 파일에서 지출을 불러와요</small></span>
@@ -366,6 +370,7 @@ button.g-row:active{opacity:.6}
 
 <div class="toast" id="toast" role="status"><span id="toastText"></span><button id="undoBtn" hidden>되돌리기</button></div>
 
+<!--CLOUD-->
 <script>
 (function(){
 const KEY='expense.v1', THEME_KEY='expense.theme';
@@ -418,7 +423,7 @@ const mkey=(y,m)=>`${y}-${p2(m+1)}`;
 
 /* storage */
 function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);if(d&&Array.isArray(d.items))return d}}catch(e){}return null}
-function persist(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}if(window.Cloud)Cloud.changed()}
 let data=load()||{items:[]};
 if(!data.refunds||typeof data.refunds!=='object')data.refunds={};
 data.items.forEach(i=>{i.cat=mapCat(i.cat)});
@@ -718,9 +723,13 @@ $('#themeCtl').addEventListener('click',e=>{
 /* settings */
 function renderSettings(){
   document.querySelectorAll('#themeCtl button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.opt===getTheme())));
-  const real=data.items.filter(i=>!i.ex).length;
-  $('#setFoot').textContent=`기록은 이 기기에만 저장돼요. 지금 ${won(real)}건이 있어요. 기기를 바꾸기 전에 백업을 내보내 두세요.`+(VER.startsWith('__')?'':` 버전 ${VER.slice(0,7)}`);
+  setFoot();
+  if(window.Cloud)Cloud.mount($('#cloudBox'));
   disarmClear();
+}
+function setFoot(){
+  const real=data.items.filter(i=>!i.ex).length,on=window.Cloud&&Cloud.on;
+  $('#setFoot').textContent=(on?`기록은 이 기기에 저장되고 GitHub Gist에 자동으로 백업돼요. 지금 ${won(real)}건이 있어요.`:`기록은 이 기기에만 저장돼요. 지금 ${won(real)}건이 있어요. 자동 백업을 켜 두면 재설치해도 그대로 돌아와요.`)+(VER.startsWith('__')?'':` 버전 ${VER.slice(0,7)}`);
 }
 $('#openSettings').onclick=()=>{renderSettings();showSheet(settings)};
 
@@ -786,6 +795,14 @@ function toast(msg,undo){
   toastT=setTimeout(()=>toastEl.classList.remove('show'),undo?4500:2000);
 }
 undoBtn.onclick=()=>{if(undoFn){undoFn();undoFn=null}toastEl.classList.remove('show')};
+
+/* auto backup (shared/cloud.js) */
+if(window.Cloud)Cloud.init({file:'expense.json',
+  getData:()=>({format:'expense-backup',version:1,exportedAt:new Date().toISOString(),items:data.items.filter(i=>!i.ex),refunds:data.refunds}),
+  hasLocalData:()=>data.items.some(i=>!i.ex),
+  applyData:obj=>{const b=parseBackup(obj);if(!b)throw new Error('format');data={items:b.items,refunds:b.refunds,v:2};persist();statSel=null;render();renderSettings()},
+  toast:m=>toast(m),onState:()=>setFoot(),
+  vars:{'--cl-bg':'var(--fill)','--cl-bg2':'var(--fill-2)','--cl-on':'var(--bg)','--cl-ok':'var(--good)','--cl-warn':'var(--bad)'}});
 
 render();
 })();

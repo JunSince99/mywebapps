@@ -284,6 +284,9 @@ button.grow{width:100%;text-align:left}
 <div class="sheet" id="settings" role="dialog" aria-modal="true" aria-labelledby="sH" tabindex="-1">
   <span class="grab"></span>
   <div class="sheet-head"><h4 id="sH">설정</h4><button class="close" data-close aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <span class="label">자동 백업</span>
+  <div id="cloudBox"></div>
+  <span class="label">파일 백업과 데이터</span>
   <div class="rows">
     <button class="srow" id="expBtn"><span><b id="expTitle">백업 내보내기</b><small id="expSub">게임 기록과 커버를 파일 하나로 저장해요</small></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
     <label class="srow" for="impFile"><span><b>백업 가져오기</b><small>내보낸 백업 파일에서 불러와요</small></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></label>
@@ -296,6 +299,7 @@ button.grow{width:100%;text-align:left}
 
 <div class="toast" id="toast" role="status"><span id="toastText"></span><button id="undoBtn" hidden>되돌리기</button></div>
 
+<!--CLOUD-->
 <script>
 (function(){
 const KEY='games.v1';
@@ -315,7 +319,7 @@ const hash=s=>{let h=2166136261;for(const ch of s){h^=ch.codePointAt(0);h=Math.i
 
 /* ---------- metadata (localStorage) ---------- */
 function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);if(d&&Array.isArray(d.games))return d}}catch(e){}return null}
-function persist(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}if(window.Cloud)Cloud.changed()}
 function seed(){
   const g=(title,q,plat,status,hours,rating,started,finished,added)=>({id:uid(),title,q,plat,status,hours,rating,memo:'',
     started:started!=null?ago(started):null,finished:finished!=null?ago(finished):null,added:ago(added),ex:true});
@@ -361,8 +365,9 @@ async function setCoverBlob(g,blob){
   urls[g.id]=URL.createObjectURL(out); delete g.coverUrl; g.hasCover=true; persist();
 }
 async function setCoverFromUrl(g,url){
-  try{const r=await fetch(url,{mode:'cors'});if(!r.ok)throw new Error(r.status);await setCoverBlob(g,await r.blob());return true}
-  catch(e){g.coverUrl=url;g.hasCover=true;persist();return false} /* shown online only if the image host refuses a copy */
+  /* coverSrc remembers where the cover came from, so a cloud backup can store the address instead of the image */
+  try{const r=await fetch(url,{mode:'cors'});if(!r.ok)throw new Error(r.status);await setCoverBlob(g,await r.blob());g.coverSrc=url;persist();return true}
+  catch(e){g.coverUrl=url;g.coverSrc=url;g.hasCover=true;persist();return false} /* shown online only if the image host refuses a copy */
 }
 async function dropCover(id){try{await idb.del(id)}catch(e){}if(urls[id]){URL.revokeObjectURL(urls[id]);delete urls[id]}}
 async function gcCovers(){try{const ids=new Set(data.games.map(g=>g.id));for(const k of await idb.keys())if(!ids.has(k))await dropCover(k)}catch(e){}}
@@ -544,7 +549,7 @@ function picker(root,onPick){
     }
   };
 }
-const applyPick=async(g,pick)=>{if(!pick)return;if(pick.file)await setCoverBlob(g,pick.file);else await setCoverFromUrl(g,pick.src)};
+const applyPick=async(g,pick)=>{if(!pick)return;if(pick.file){await setCoverBlob(g,pick.file);delete g.coverSrc;persist()}else await setCoverFromUrl(g,pick.src)};
 
 /* ---------- sheets ---------- */
 const scrim=$('#scrim');let openEl=null;
@@ -646,9 +651,14 @@ let prepared=null;
 function openSettings(){
   prepared=null;$('#expBtn').classList.remove('ready');$('#expTitle').textContent='백업 내보내기';$('#expSub').textContent='게임 기록과 커버를 파일 하나로 저장해요';
   $('#exClear').hidden=!data.games.some(g=>g.ex);disarmAll();
-  const real=data.games.filter(g=>!g.ex),covers=real.filter(g=>g.hasCover).length;
-  $('#setFoot').textContent=`기록과 커버는 이 기기에만 저장돼요. 지금 게임 ${real.length}개, 커버 ${covers}개가 있어요. 기기를 바꾸거나 앱을 다시 설치하기 전에 백업을 내보내 두세요.`;
+  setFoot();
+  if(window.Cloud)Cloud.mount($('#cloudBox'));
   show($('#settings'));
+}
+function setFoot(){
+  const real=data.games.filter(g=>!g.ex),covers=real.filter(g=>g.hasCover).length;
+  $('#setFoot').textContent=window.Cloud&&Cloud.on?`기록과 커버는 이 기기에 저장되고 GitHub Gist에 자동으로 백업돼요. 지금 게임 ${real.length}개, 커버 ${covers}개가 있어요.`
+    :`기록과 커버는 이 기기에만 저장돼요. 지금 게임 ${real.length}개, 커버 ${covers}개가 있어요. 자동 백업을 켜 두면 재설치해도 그대로 돌아와요.`;
 }
 $('#setBtn').onclick=openSettings;
 $('#expBtn').onclick=async()=>{
@@ -674,21 +684,51 @@ $('#impFile').addEventListener('change',async e=>{
   if(!obj||obj.format!=='games-backup'||!Array.isArray(obj.games)){toast('게임 백업 파일이 아니에요');return}
   data.games=data.games.filter(g=>!g.ex);
   const have=new Set(data.games.map(g=>g.id));let added=0,skipped=0;
+  const later=[];
   for(const g of obj.games){
-    if(!g||g.id==null||!g.title)continue;
-    if(have.has(String(g.id))){skipped++;continue}
-    const n={id:String(g.id),title:String(g.title).slice(0,80),plat:PLAT.includes(g.plat)?g.plat:'기타',status:ST.some(s=>s.id===g.status)?g.status:'backlog',
-      hours:Math.max(0,Math.min(9999,Math.round(+g.hours||0))),rating:Math.max(0,Math.min(5,Math.round(+g.rating||0))),memo:String(g.memo||'').slice(0,60),
-      started:okDate(g.started),finished:okDate(g.finished),added:okDate(g.added)||ymd(today),next:!!g.next,hasCover:false};
-    if(g.q)n.q=String(g.q).slice(0,120);
-    const du=obj.covers&&obj.covers[g.id];
-    if(typeof du==='string'&&/^data:image\/(jpeg|png|webp|gif);base64,/.test(du)){try{const b=dataURLToBlob(du);await idb.set(n.id,b);urls[n.id]=URL.createObjectURL(b);n.hasCover=true}catch(err){}}
-    else if(typeof g.coverUrl==='string'&&/^https:\/\//.test(g.coverUrl)){n.coverUrl=g.coverUrl;n.hasCover=true}
+    const n=normGame(g);if(!n)continue;
+    if(have.has(n.id)){skipped++;continue}
+    if(!await coverFromBackup(n,obj.covers&&obj.covers[n.id])&&n.coverSrc)later.push(n);
     data.games.push(n);have.add(n.id);added++;
   }
+  later.forEach(n=>setCoverFromUrl(n,n.coverSrc).then(()=>refreshCover(n)));
   persist();hide();toast(skipped?`${added}개 가져옴, 중복 ${skipped}개 제외`:`${added}개 게임을 가져왔어요`);
 });
 $('#exClear').onclick=()=>{hide();clearExamples()};
+
+/* one game from a backup file or the cloud, checked field by field */
+function normGame(g){
+  if(!g||g.id==null||!g.title)return null;
+  const n={id:String(g.id),title:String(g.title).slice(0,80),plat:PLAT.includes(g.plat)?g.plat:'기타',status:ST.some(s=>s.id===g.status)?g.status:'backlog',
+    hours:Math.max(0,Math.min(9999,Math.round(+g.hours||0))),rating:Math.max(0,Math.min(5,Math.round(+g.rating||0))),memo:String(g.memo||'').slice(0,60),
+    started:okDate(g.started),finished:okDate(g.finished),added:okDate(g.added)||ymd(today),next:!!g.next,hasCover:false};
+  if(g.q)n.q=String(g.q).slice(0,120);
+  if(typeof g.coverSrc==='string'&&/^https:\/\//.test(g.coverSrc))n.coverSrc=g.coverSrc;
+  else if(typeof g.coverUrl==='string'&&/^https:\/\//.test(g.coverUrl))n.coverSrc=g.coverUrl;
+  return n;
+}
+/* a cover image carried in the backup itself (photos the person picked); true when one was stored */
+async function coverFromBackup(n,du){
+  if(typeof du!=='string'||!/^data:image\/(jpeg|png|webp|gif);base64,/.test(du))return false;
+  try{const b=dataURLToBlob(du);await idb.set(n.id,b);if(urls[n.id])URL.revokeObjectURL(urls[n.id]);urls[n.id]=URL.createObjectURL(b);n.hasCover=true;return true}catch(e){return false}
+}
+/* cloud copy: covers from Wikipedia travel as their address, picked photos as small thumbnails */
+const thumb=async b=>{try{const bmp=await createImageBitmap(b);const s=Math.min(1,420/bmp.height);if(s===1&&b.size<120000)return b;
+  const c=document.createElement('canvas');c.width=Math.round(bmp.width*s);c.height=Math.round(bmp.height*s);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+  return await new Promise(r=>c.toBlob(x=>r(x||b),'image/jpeg',.8))}catch(e){return b}};
+async function cloudData(){
+  const games=data.games.filter(g=>!g.ex),covers={};
+  for(const g of games){if(g.coverSrc)continue;try{const b=await idb.get(g.id);if(b)covers[g.id]=await blobToDataURL(await thumb(b))}catch(e){}}
+  return {format:'games-backup',version:1,exportedAt:new Date().toISOString(),games,covers};
+}
+async function cloudApply(obj){
+  if(!obj||obj.format!=='games-backup'||!Array.isArray(obj.games))throw new Error('format');
+  const list=obj.games.map(normGame).filter(Boolean);
+  for(const n of list)await coverFromBackup(n,obj.covers&&obj.covers[n.id]);
+  data.games=list;persist();render();
+  for(const n of list)if(!n.hasCover&&n.coverSrc){await setCoverFromUrl(n,n.coverSrc);refreshCover(n)}
+  gcCovers();
+}
 let allT;
 function disarmAll(){clearTimeout(allT);$('#allClear').classList.remove('armed');$('#allClearSub').textContent='게임과 커버를 모두 지워요'}
 $('#allClear').onclick=()=>{
@@ -713,6 +753,10 @@ let tT,undo=null;
 function toast(msg,fn){$('#toastText').textContent=msg;undo=fn||null;$('#undoBtn').hidden=!fn;$('#toast').classList.add('show');clearTimeout(tT);
   tT=setTimeout(()=>{$('#toast').classList.remove('show');if(fn&&undo===fn){undo=null;gcCovers()}},fn?4500:2000)}
 $('#undoBtn').onclick=()=>{if(undo){undo();undo=null}$('#toast').classList.remove('show')};
+
+/* auto backup (shared/cloud.js) */
+if(window.Cloud)Cloud.init({file:'games.json',getData:cloudData,applyData:cloudApply,hasLocalData:()=>data.games.some(g=>!g.ex),toast:m=>toast(m),onState:()=>setFoot(),
+  vars:{'--cl-bg':'var(--raise)','--cl-bg2':'var(--raise-2)','--cl-on':'var(--surface)','--cl-ok':'var(--clear)','--cl-warn':'var(--drop)'}});
 
 /* open: load saved covers first, then draw once */
 (async()=>{

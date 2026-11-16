@@ -16,6 +16,7 @@
 | --- | --- |
 | `build.mjs` | `apps/*/build.mjs`를 차례로 실행해 `dist/<이름>/`에 빌드하고, `dist/index.html`에 앱 목록을 만듭니다 |
 | `apps/<이름>/build.mjs` | 앱 하나의 빌드. 첫 번째 인자로 출력 폴더를 받습니다 |
+| `shared/cloud.js` | GitHub 비밀 Gist 자동 백업. 각 앱 빌드가 `<!--CLOUD-->` 자리에 넣습니다 |
 | `apps/<이름>/public/manifest.webmanifest` | 앱 이름·설명 (목록 페이지에도 쓰입니다) |
 | `apps/<이름>/public/icons/apple-touch-icon.png` | 앱 아이콘 (목록 페이지에도 쓰입니다) |
 | `.github/workflows/pages.yml` | `main` 푸시 시 빌드해서 `gh-pages` 브랜치로 배포 |
