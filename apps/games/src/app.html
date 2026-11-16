@@ -1,0 +1,460 @@
+<title>게임</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: cover-first and dark, like a console home screen. A blurred-cover hero for what you're playing,
+   a cover grid for the pile, rows of covers for cleared and dropped games. The covers carry the color; the UI stays quiet. */
+:root{
+  --bg:#0b0c10; --surface:#15171d; --raise:#1f222a; --raise-2:#2a2e38;
+  --ink:#f1f2f5; --ink-2:#9ba1ad; --ink-3:#5d636f; --line:#1c1f26;
+  --playing:#5b93ff; --backlog:#f2b442; --clear:#38c98c; --drop:#ff7a73;
+  --scrim:rgba(0,0,0,.62);
+  --font:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",system-ui,sans-serif;
+  --gl:max(16px,env(safe-area-inset-left,0px)); --gr:max(16px,env(safe-area-inset-right,0px));
+  --ease:cubic-bezier(.22,.8,.24,1);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--font);font-size:15px;letter-spacing:-.01em;
+  -webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-font-smoothing:antialiased}
+body.lock{overflow:hidden}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+button,label.btnlike{font:inherit;color:inherit;letter-spacing:inherit;background:none;border:0;padding:0;cursor:pointer;touch-action:manipulation}
+button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+svg{display:block}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+.app{max-width:560px;margin:0 auto;padding-bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+.pad{padding-left:var(--gl);padding-right:var(--gr)}
+
+/* header */
+.top{display:flex;align-items:baseline;justify-content:space-between;padding-block:14px 6px}
+.top h1{margin:0;font-size:30px;font-weight:800;letter-spacing:-.03em}
+.top span{font-size:13.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+
+/* cover: generated art underneath, real image on top once loaded */
+.cv{position:relative;display:block;width:100%;aspect-ratio:3/4;border-radius:8px;overflow:hidden;background:var(--c1,#2a2e38);
+  box-shadow:0 0 0 .5px rgba(255,255,255,.08),0 10px 24px -14px rgba(0,0,0,.9)}
+.cv svg{position:absolute;inset:0;width:100%;height:100%}
+.cv .gt{position:absolute;left:8%;right:8%;bottom:7%;font-size:max(10px,11cqw);font-weight:800;line-height:1.15;color:#fff;word-break:keep-all;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.cv{container-type:inline-size}
+.cv img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s}
+.cv img.ok{opacity:1}
+.badge{position:absolute;right:6%;top:5%;padding:3px 6px;border-radius:5px;background:var(--clear);color:#06120c;font-size:max(8px,7.5cqw);font-weight:800;letter-spacing:.04em}
+
+/* hero */
+.heroes{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.heroes::-webkit-scrollbar{display:none}
+.hero{position:relative;flex:0 0 100%;scroll-snap-align:start;overflow:hidden;padding-block:26px 24px;text-align:center;cursor:pointer}
+.hero .blur{position:absolute;inset:-20%;background-size:cover;background-position:center;filter:blur(34px) saturate(1.3);opacity:.55;transform:scale(1.1)}
+.hero .fade{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(11,12,16,.15),var(--bg) 92%)}
+.hero .in{position:relative;display:flex;flex-direction:column;align-items:center;gap:14px}
+.hero .cv{width:min(46vw,190px);border-radius:10px;box-shadow:0 0 0 .5px rgba(255,255,255,.1),0 24px 40px -16px rgba(0,0,0,.9)}
+.hero .k{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--playing)}
+.hero h2{margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.2;text-wrap:balance;max-width:86%;word-break:keep-all}
+.hero p{margin:4px 0 0;font-size:14px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.dots{display:flex;justify-content:center;gap:6px;margin-top:-6px}
+.dots i{width:6px;height:6px;border-radius:50%;background:var(--raise-2)}
+.dots i.on{background:var(--ink)}
+.hero-empty{margin:18px var(--gr) 8px var(--gl);padding:26px 18px;border-radius:16px;background:var(--surface);text-align:center;color:var(--ink-2);font-size:14px;line-height:1.6}
+
+/* sections */
+.sec{margin-top:26px}
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+.sec-head h3{margin:0;font-size:18px;font-weight:800;letter-spacing:-.02em}
+.sec-head span{font-size:13.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 10px}
+@media (min-width:500px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.tile{display:flex;flex-direction:column;gap:7px;text-align:left;min-width:0}
+.tile:active .cv{transform:scale(.97)}
+.tile .cv{transition:transform .15s}
+.tile b{font-size:13px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
+.tile small{font-size:12px;color:var(--ink-3);margin-top:-4px;font-variant-numeric:tabular-nums}
+.shelf{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;margin:0 calc(-1 * var(--gr)) 0 calc(-1 * var(--gl));padding:0 var(--gr) 2px var(--gl)}
+.shelf::-webkit-scrollbar{display:none}
+.shelf .tile{flex:0 0 104px}
+.stars{color:var(--backlog);font-size:11px;letter-spacing:1px;margin-top:-4px}
+.stars span{color:var(--raise-2)}
+.dropped .cv{filter:grayscale(1) brightness(.75)}
+.banner{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px;padding:8px 8px 8px 14px;border-radius:12px;background:var(--surface);font-size:13px;color:var(--ink-2)}
+.banner button{flex:none;padding:7px 12px;border-radius:8px;background:var(--raise);font-size:13px;font-weight:600;color:var(--ink)}
+.first{margin-top:40px;text-align:center;color:var(--ink-2);font-size:15px;line-height:1.6}
+.first b{display:block;color:var(--ink);font-size:20px;margin-bottom:6px}
+
+/* add button */
+.fab{position:fixed;right:calc(var(--gr) + 2px);bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:20;width:58px;height:58px;display:grid;place-items:center;
+  border-radius:50%;background:var(--ink);color:var(--bg);box-shadow:0 12px 26px -10px rgba(0,0,0,.8);transition:transform .15s}
+.fab:active{transform:scale(.92)}
+.fab svg{width:26px;height:26px}
+
+/* sheets */
+.scrim{position:fixed;inset:0;z-index:30;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity .28s}
+.scrim.open{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:31;max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:18px;
+  max-height:calc(100% - 20px - env(safe-area-inset-top,0px));overflow-y:auto;overscroll-behavior:contain;
+  padding:10px var(--gr) calc(18px + env(safe-area-inset-bottom,0px)) var(--gl);border-radius:22px 22px 0 0;background:var(--surface);outline:none;
+  transform:translateY(105%);visibility:hidden;transition:transform .34s var(--ease),visibility 0s .34s}
+.sheet.open{transform:none;visibility:visible;transition:transform .34s var(--ease),visibility 0s}
+.grab{align-self:center;width:36px;height:5px;border-radius:3px;background:var(--raise-2);flex:none}
+.sheet h4{margin:0;font-size:19px;font-weight:800}
+.field{display:flex;flex-direction:column;gap:8px}
+.label{font-size:13px;font-weight:600;color:var(--ink-2)}
+.input{width:100%;height:48px;padding:0 14px;border:0;border-radius:12px;background:var(--raise);outline:none;
+  font:inherit;font-size:16px;color:var(--ink);-webkit-user-select:text;user-select:text}
+.input::placeholder{color:var(--ink-3)}
+.input:focus{box-shadow:inset 0 0 0 2px var(--raise-2)}
+.searchrow{display:flex;gap:8px}
+.searchrow .input{flex:1}
+.searchrow button{flex:none;height:48px;padding:0 16px;border-radius:12px;background:var(--raise);font-weight:700;font-size:14.5px}
+.picks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.pick{display:flex;flex-direction:column;gap:6px;text-align:left;min-width:0;border-radius:10px}
+.pick .cv{box-shadow:0 0 0 .5px rgba(255,255,255,.08)}
+.pick[aria-pressed="true"] .cv{box-shadow:0 0 0 3px var(--ink)}
+.pick small{font-size:11.5px;line-height:1.3;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pick .ph{aspect-ratio:3/4;border-radius:8px;background:var(--raise);display:grid;place-items:center;text-align:center;font-size:12.5px;font-weight:600;color:var(--ink-2);padding:8px;line-height:1.4}
+.pick .ph svg{width:26px;height:26px;margin:0 auto 6px;color:var(--ink-3)}
+.pickmsg{font-size:13.5px;color:var(--ink-2);line-height:1.5}
+.skel{aspect-ratio:3/4;border-radius:8px;background:var(--raise);animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.5}}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{height:36px;padding:0 14px;border-radius:18px;background:var(--raise);font-size:13.5px;font-weight:600;color:var(--ink-2)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.status{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.st{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0 10px;border-radius:12px;background:var(--raise);font-size:13px;font-weight:600;color:var(--ink-2)}
+.st i{width:9px;height:9px;border-radius:50%;background:var(--s)}
+.st[aria-pressed="true"]{background:color-mix(in srgb,var(--s) 18%,var(--surface));color:var(--ink);box-shadow:inset 0 0 0 2px var(--s)}
+.dtop{display:grid;grid-template-columns:118px minmax(0,1fr);gap:16px;align-items:end}
+.dtop h4{font-size:22px;line-height:1.2;word-break:keep-all;text-wrap:balance}
+.dtop p{margin:6px 0 10px;font-size:13px;color:var(--ink-2);line-height:1.5}
+.linkbtn{font-size:13.5px;font-weight:700;color:var(--playing)}
+.hours{display:flex;align-items:center;gap:10px}
+.hours button{width:44px;height:44px;border-radius:12px;background:var(--raise);font-size:22px}
+.hours input{width:84px;height:44px;border:0;background:transparent;text-align:center;outline:none;font:inherit;font-size:26px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;-webkit-user-select:text;user-select:text}
+.hours span{font-size:14px;color:var(--ink-2)}
+.rate{display:flex;gap:2px}
+.rate button{width:42px;height:42px;font-size:28px;color:var(--raise-2)}
+.rate button.on{color:var(--backlog)}
+.actions{display:flex;gap:8px}
+.btn{flex:1;height:52px;border-radius:14px;background:var(--ink);color:var(--surface);font-size:16px;font-weight:700}
+.btn:disabled{background:var(--raise);color:var(--ink-3);cursor:default}
+.btn.ghost{flex:none;width:96px;background:var(--raise);color:var(--drop)}
+.btn.ghost.armed{background:var(--drop);color:var(--surface)}
+.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:40;display:flex;align-items:center;gap:6px;padding:10px 18px;border-radius:999px;
+  background:var(--ink);color:var(--bg);font-size:14px;font-weight:600;white-space:nowrap;opacity:0;transform:translate(-50%,10px);pointer-events:none;transition:opacity .2s,transform .25s var(--ease)}
+.toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.toast button{margin:-4px -10px -4px 4px;padding:4px 10px;border-radius:999px;font-weight:700;color:var(--bg);background:rgba(0,0,0,.12)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:0s!important;animation:none!important}}
+</style>
+
+<main class="app">
+  <div class="top pad"><h1>게임</h1><span id="summary"></span></div>
+  <div id="heroArea"></div>
+  <div class="pad">
+    <div class="banner" id="sampleBanner" hidden><span>예시 게임이 들어 있어요</span><button id="sampleClear">예시 지우기</button></div>
+    <div id="sections"></div>
+  </div>
+</main>
+<button class="fab" id="addBtn" aria-label="게임 추가"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+<div class="scrim" id="scrim"></div>
+
+<div class="sheet" id="addSheet" role="dialog" aria-modal="true" aria-labelledby="addH" tabindex="-1">
+  <span class="grab"></span>
+  <h4 id="addH">게임 추가</h4>
+  <div class="field"><label class="label" for="addTitle">게임 제목</label>
+    <div class="searchrow"><input class="input" id="addTitle" placeholder="예: 엘든 링" maxlength="80" autocomplete="off" enterkeyhint="search"><button id="addSearch">커버 찾기</button></div></div>
+  <div class="field"><span class="label">커버</span><div id="addPicker"></div></div>
+  <div class="field"><span class="label">상태</span><div class="status" id="addStatus"></div></div>
+  <div class="field"><span class="label">플랫폼</span><div class="chips" id="addPlat"></div></div>
+  <div class="actions"><button class="btn" id="addSave" disabled>추가하기</button></div>
+</div>
+
+<div class="sheet" id="detail" role="dialog" aria-modal="true" aria-labelledby="dTitle" tabindex="-1">
+  <span class="grab"></span>
+  <div class="dtop"><div id="dCover"></div><div><h4 id="dTitle"></h4><p id="dMeta"></p><button class="linkbtn" id="dCoverBtn">커버 바꾸기</button></div></div>
+  <div class="field" id="dPickerField" hidden><div class="searchrow"><input class="input" id="dQuery" maxlength="80" autocomplete="off" enterkeyhint="search"><button id="dSearch">찾기</button></div><div id="dPicker"></div></div>
+  <div class="field"><span class="label">상태</span><div class="status" id="dStatus"></div></div>
+  <div class="field"><label class="label" for="dHours">플레이 시간</label>
+    <div class="hours"><button id="hMinus" aria-label="1시간 빼기">−</button><input id="dHours" type="number" inputmode="numeric" min="0" max="9999"><button id="hPlus" aria-label="1시간 더하기">+</button><span>시간</span></div></div>
+  <div class="field" id="rateField"><span class="label">평점</span><div class="rate" id="dRate"></div></div>
+  <div class="field"><label class="label" for="dMemo">한 줄 메모</label><input class="input" id="dMemo" placeholder="어땠어요?" maxlength="60" autocomplete="off"></div>
+  <div class="field"><span class="label">플랫폼</span><div class="chips" id="dPlat"></div></div>
+  <div class="actions"><button class="btn ghost" id="dDel">삭제</button><button class="btn" id="dDone">완료</button></div>
+</div>
+
+<div class="toast" id="toast" role="status"><span id="toastText"></span><button id="undoBtn" hidden>되돌리기</button></div>
+
+<script>
+(function(){
+const KEY='games.v1';
+const ST=[{id:'playing',name:'하는 중',v:'--playing'},{id:'backlog',name:'쌓아둠',v:'--backlog'},{id:'clear',name:'엔딩',v:'--clear'},{id:'drop',name:'그만둠',v:'--drop'}];
+const PLAT=['Switch','PS5','PC','Xbox','모바일','기타'];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const p2=n=>String(n).padStart(2,'0');
+const today=new Date();today.setHours(0,0,0,0);
+const ymd=d=>`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+const parse=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const ago=n=>{const d=new Date(today);d.setDate(d.getDate()-n);return ymd(d)};
+const daysSince=s=>Math.round((today-parse(s))/864e5)+1;
+const md=s=>{const d=parse(s);return `${d.getFullYear()}.${p2(d.getMonth()+1)}.${p2(d.getDate())}`};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const hash=s=>{let h=2166136261;for(const ch of s){h^=ch.codePointAt(0);h=Math.imul(h,16777619)}return h>>>0};
+
+/* ---------- metadata (localStorage) ---------- */
+function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);if(d&&Array.isArray(d.games))return d}}catch(e){}return null}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
+function seed(){
+  const g=(title,q,plat,status,hours,rating,started,finished,added)=>({id:uid(),title,q,plat,status,hours,rating,memo:'',
+    started:started!=null?ago(started):null,finished:finished!=null?ago(finished):null,added:ago(added),ex:true});
+  return {games:[
+    g('발더스 게이트 3',"Baldur's Gate 3",'PC','playing',41,0,38,null,60),
+    g('젤다의 전설 시간의 오카리나','The Legend of Zelda: Ocarina of Time','Switch','playing',6,0,9,null,9),
+    g('엘든 링','Elden Ring','PS5','backlog',0,0,null,null,120),
+    g('하데스 II','Hades II','Switch','backlog',0,0,null,null,30),
+    g('할로우 나이트: 실크송','Hollow Knight: Silksong','PC','backlog',0,0,null,null,50),
+    g('파이널 판타지 VII 리버스','Final Fantasy VII Rebirth','PS5','backlog',0,0,null,null,200),
+    g('젤다의 전설 티어스 오브 더 킹덤','The Legend of Zelda: Tears of the Kingdom','Switch','clear',128,5,310,240,330),
+    g('스타듀 밸리','Stardew Valley','PC','clear',84,4,420,365,430),
+    g('피크민 4','Pikmin 4','Switch','clear',22,4,150,120,160),
+    g('사이버펑크 2077','Cyberpunk 2077','PS5','drop',9,2,200,null,210),
+  ]};
+}
+let data=load(); if(!data){data=seed();persist()}
+
+/* ---------- cover images (IndexedDB, so they work offline) ---------- */
+const idb=(()=>{let dbp;
+  const open=()=>dbp||(dbp=new Promise((res,rej)=>{const r=indexedDB.open('games',1);r.onupgradeneeded=()=>r.result.createObjectStore('covers');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}));
+  const run=(mode,fn)=>open().then(db=>new Promise((res,rej)=>{const t=db.transaction('covers',mode);const q=fn(t.objectStore('covers'));t.oncomplete=()=>res(q&&q.result);t.onerror=()=>rej(t.error)}));
+  return {get:k=>run('readonly',s=>s.get(k)),set:(k,v)=>run('readwrite',s=>s.put(v,k)),del:k=>run('readwrite',s=>s.delete(k)),keys:()=>run('readonly',s=>s.getAllKeys())};
+})();
+const urls={};
+async function coverSrc(g){
+  if(urls[g.id])return urls[g.id];
+  try{const b=await idb.get(g.id);if(b){urls[g.id]=URL.createObjectURL(b);return urls[g.id]}}catch(e){}
+  return g.coverUrl||null;
+}
+async function shrink(blob){
+  try{const bmp=await createImageBitmap(blob);const s=Math.min(1,960/bmp.height);
+    if(s===1&&blob.size<500000)return blob;
+    const c=document.createElement('canvas');c.width=Math.round(bmp.width*s);c.height=Math.round(bmp.height*s);
+    c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+    return await new Promise(r=>c.toBlob(b=>r(b||blob),'image/jpeg',.86));
+  }catch(e){return blob}
+}
+async function setCoverBlob(g,blob){
+  const out=await shrink(blob);
+  await idb.set(g.id,out);
+  if(urls[g.id])URL.revokeObjectURL(urls[g.id]);
+  urls[g.id]=URL.createObjectURL(out); delete g.coverUrl; g.hasCover=true; persist();
+}
+async function setCoverFromUrl(g,url){
+  try{const r=await fetch(url,{mode:'cors'});if(!r.ok)throw new Error(r.status);await setCoverBlob(g,await r.blob());return true}
+  catch(e){g.coverUrl=url;g.hasCover=true;persist();return false} /* shown online only if the image host refuses a copy */
+}
+async function dropCover(id){try{await idb.del(id)}catch(e){}if(urls[id]){URL.revokeObjectURL(urls[id]);delete urls[id]}}
+async function gcCovers(){try{const ids=new Set(data.games.map(g=>g.id));for(const k of await idb.keys())if(!ids.has(k))await dropCover(k)}catch(e){}}
+
+/* ---------- cover search (English Wikipedia; Korean titles go through the linked English article) ---------- */
+const wiki=(lang,params)=>fetch(`https://${lang}.wikipedia.org/w/api.php?`+new URLSearchParams({format:'json',formatversion:'2',origin:'*',...params})).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.json()});
+async function imagesFor(titles){
+  if(!titles.length)return [];
+  const j=await wiki('en',{action:'query',titles:titles.slice(0,40).join('|'),redirects:'1',prop:'pageimages|description',piprop:'thumbnail|original',pithumbsize:'640',pilicense:'any'});
+  const pages=(j.query&&j.query.pages)||[], redirect={};
+  ((j.query&&j.query.redirects)||[]).forEach(r=>{redirect[r.to]=r.from});
+  ((j.query&&j.query.normalized)||[]).forEach(r=>{redirect[r.to]=redirect[r.to]||r.from});
+  const order=t=>{const i=titles.indexOf(t);return i<0?titles.indexOf(redirect[t]):i};
+  return pages.filter(p=>p.thumbnail||p.original)
+    .map(p=>({title:p.title,desc:p.description||'',src:(p.thumbnail||p.original).source,game:/video game|game/i.test(p.description||''),o:order(p.title)}))
+    .sort((a,b)=>(b.game-a.game)||((a.o<0?99:a.o)-(b.o<0?99:b.o)));
+}
+async function searchCovers(q){
+  const titles=[];const add=t=>{if(t&&!titles.includes(t))titles.push(t)};
+  if(/[가-힣]/.test(q)){
+    try{const j=await wiki('ko',{action:'query',generator:'search',gsrsearch:q,gsrlimit:'6',prop:'langlinks',lllang:'en'});
+      ((j.query&&j.query.pages)||[]).sort((a,b)=>(a.index||0)-(b.index||0)).forEach(p=>(p.langlinks||[]).forEach(l=>add(l.title)));
+    }catch(e){}
+  }
+  add(q);
+  const s=await wiki('en',{action:'query',list:'search',srsearch:`${q} video game`,srlimit:'10'});
+  ((s.query&&s.query.search)||[]).forEach(x=>add(x.title));
+  return (await imagesFor(titles)).slice(0,9);
+}
+
+/* ---------- covers in the page ---------- */
+function art(title){
+  const h=hash(title),hu=h%360,m=(h>>9)%4;
+  const c1=`hsl(${hu} 30% 26%)`,c2=`hsl(${hu} 34% 36%)`,c3=`hsl(${hu} 30% 20%)`;let s='';
+  if(m===0)s=`<circle cx="215" cy="120" r="125" fill="${c2}"/><circle cx="70" cy="245" r="38" fill="${c3}"/>`;
+  else if(m===1)s=[0,1,2,3].map(i=>`<polygon points="${-60+i*95},0 ${-10+i*95},0 ${210+i*95},400 ${160+i*95},400" fill="${i%2?c3:c2}"/>`).join('');
+  else if(m===2){for(let y=0;y<4;y++)for(let x=0;x<4;x++)s+=`<circle cx="${70+x*55}" cy="${60+y*55}" r="${(x+y)%3===0?15:9}" fill="${(x+y)%2?c2:c3}"/>`}
+  else s=`<polygon points="0,290 120,110 205,230 250,170 300,240 300,400 0,400" fill="${c3}"/><circle cx="235" cy="85" r="34" fill="${c2}"/>`;
+  return {c1,svg:`<svg viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${s}</svg>`};
+}
+function cv(g,{badge=true}={}){
+  const a=art(g.title);
+  return `<span class="cv" data-cover="${g.id}" style="--c1:${a.c1}">${a.svg}<span class="gt">${esc(g.title)}</span><img alt="">${badge&&g.status==='clear'?'<span class="badge">CLEAR</span>':''}</span>`;
+}
+async function hydrate(root=document){
+  for(const el of root.querySelectorAll('[data-cover]')){
+    const g=data.games.find(x=>x.id===el.dataset.cover);if(!g)continue;
+    const src=await coverSrc(g);if(!src)continue;
+    const img=el.querySelector('img');
+    if(img.getAttribute('src')!==src){img.onload=()=>img.classList.add('ok');img.onerror=()=>img.classList.remove('ok');img.src=src}
+    const hero=el.closest('.hero');if(hero)hero.querySelector('.blur').style.backgroundImage=`url("${src}")`;
+  }
+}
+
+/* ---------- home ---------- */
+function render(){
+  const by=s=>data.games.filter(g=>g.status===s);
+  const playing=by('playing').sort((a,b)=>(b.started||'').localeCompare(a.started||''));
+  const backlog=by('backlog').sort((a,b)=>b.added.localeCompare(a.added));
+  const clear=by('clear').sort((a,b)=>(b.finished||'').localeCompare(a.finished||''));
+  const drop=by('drop');
+  $('#summary').textContent=data.games.length?`쌓인 게임 ${backlog.length}개`:'';
+  $('#sampleBanner').hidden=!data.games.some(g=>g.ex);
+
+  if(!data.games.length){
+    $('#heroArea').innerHTML='';
+    $('#sections').innerHTML=`<div class="first"><b>첫 게임을 추가해 보세요</b>오른쪽 아래 + 버튼을 누르고 제목을 입력하면<br>커버를 찾아 드려요.</div>`;
+    return;
+  }
+  $('#heroArea').innerHTML=playing.length
+    ?`<div class="heroes" id="heroes">${playing.map(g=>`<div class="hero" data-id="${g.id}"><div class="blur"></div><div class="fade"></div><div class="in">${cv(g)}
+       <div><div class="k">이어서 하기</div><h2>${esc(g.title)}</h2><p>${g.hours||0}시간${g.started?` · ${daysSince(g.started)}일째`:''} · ${esc(g.plat)}</p></div></div></div>`).join('')}</div>`
+      +(playing.length>1?`<div class="dots" id="dots">${playing.map((_,i)=>`<i class="${i?'':'on'}"></i>`).join('')}</div>`:'')
+    :`<div class="hero-empty">지금 하는 게임이 없어요.<br>쌓아둔 게임을 눌러 "하는 중"으로 바꿔 보세요.</div>`;
+  const hs=$('#heroes');
+  if(hs&&$('#dots'))hs.addEventListener('scroll',()=>{const i=Math.round(hs.scrollLeft/hs.clientWidth);$('#dots').querySelectorAll('i').forEach((d,j)=>d.classList.toggle('on',i===j))},{passive:true});
+
+  const tile=(g,sub)=>`<button class="tile" data-id="${g.id}">${cv(g)}<b>${esc(g.title)}</b>${sub||''}</button>`;
+  const starsHTML=n=>n?`<span class="stars">${'★'.repeat(n)}<span>${'★'.repeat(5-n)}</span></span>`:'';
+  let h='';
+  h+=`<section class="sec"><div class="sec-head"><h3>쌓아둔 게임</h3><span>${backlog.length}</span></div>`+
+     (backlog.length?`<div class="grid">${backlog.map(g=>tile(g)).join('')}</div>`:`<div class="hero-empty" style="margin:0">쌓인 게임이 없어요. 대단해요.</div>`)+`</section>`;
+  if(clear.length)h+=`<section class="sec"><div class="sec-head"><h3>엔딩 본 게임</h3><span>${clear.length}</span></div><div class="shelf">${clear.map(g=>tile(g,`<small>${g.finished?md(g.finished).slice(0,7):''}${g.hours?` · ${g.hours}h`:''}</small>${starsHTML(g.rating)}`)).join('')}</div></section>`;
+  if(drop.length)h+=`<section class="sec dropped"><div class="sec-head"><h3>그만둔 게임</h3><span>${drop.length}</span></div><div class="shelf">${drop.map(g=>tile(g,`<small>${g.hours?`${g.hours}시간에서 멈춤`:'시작만 함'}</small>`)).join('')}</div></section>`;
+  $('#sections').innerHTML=h;
+  hydrate();
+}
+document.querySelector('.app').addEventListener('click',e=>{const b=e.target.closest('[data-id]');if(b)openDetail(b.dataset.id)});
+
+/* ---------- example covers: fetched once on first open ---------- */
+async function fetchExampleCovers(){
+  for(const g of data.games.filter(g=>g.ex&&g.q&&!g.hasCover&&!g.tried)){
+    g.tried=true;persist();
+    try{const r=await imagesFor([g.q]);if(r[0]){await setCoverFromUrl(g,r[0].src);render()}}catch(e){}
+  }
+}
+
+/* ---------- cover picker (used by add and detail) ---------- */
+function picker(root,onPick){
+  const st={results:[],sel:null,file:null};
+  const fileId='f'+uid();
+  const extras=()=>`<label class="pick" for="${fileId}"><span class="ph"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 15.5l-4.5-4.5-8 8"/></svg>사진에서 고르기</span></span></label><input type="file" accept="image/*" id="${fileId}" class="vh">`;
+  const paint=(msg)=>{
+    root.innerHTML=(msg?`<p class="pickmsg">${msg}</p>`:'')+`<div class="picks">${st.results.map((r,i)=>
+      `<button class="pick" data-i="${i}" aria-pressed="${st.sel===i}"><span class="cv"><img class="ok" src="${esc(r.src)}" alt="" referrerpolicy="no-referrer"></span><small>${esc(r.title)}</small></button>`).join('')}${extras()}</div>`;
+    root.querySelector('input[type=file]').addEventListener('change',async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;st.sel='file';st.file=f;
+      const u=URL.createObjectURL(f);st.results=[{title:'내 사진',src:u,file:f},...st.results.filter(r=>!r.file)];st.sel=0;paint();onPick(st.results[0])});
+  };
+  root.addEventListener('click',e=>{const b=e.target.closest('.pick[data-i]');if(!b)return;const i=+b.dataset.i;st.sel=st.sel===i?null:i;
+    root.querySelectorAll('.pick[data-i]').forEach(x=>x.setAttribute('aria-pressed',String(+x.dataset.i===st.sel)));onPick(st.sel==null?null:st.results[st.sel])});
+  let seq=0;
+  return {
+    reset(){st.results=[];st.sel=null;paint('제목을 입력하고 "커버 찾기"를 누르면 위키백과에서 커버를 찾아요.')},
+    async search(q){
+      q=q.trim();if(!q)return;const my=++seq;st.results=[];st.sel=null;onPick(null);
+      root.innerHTML=`<p class="pickmsg">찾는 중…</p><div class="picks">${'<span class="skel"></span>'.repeat(3)}</div>`;
+      try{const r=await searchCovers(q);if(my!==seq)return;st.results=r;
+        if(r.length){st.sel=0;paint('맞는 커버를 골라 주세요.');onPick(r[0])}
+        else paint('커버를 못 찾았어요. 영어 제목으로 다시 찾거나 사진에서 골라 보세요.');
+      }catch(e){if(my!==seq)return;paint('검색하지 못했어요. 인터넷 연결을 확인하거나 사진에서 골라 보세요.')}
+    }
+  };
+}
+const applyPick=async(g,pick)=>{if(!pick)return;if(pick.file)await setCoverBlob(g,pick.file);else await setCoverFromUrl(g,pick.src)};
+
+/* ---------- sheets ---------- */
+const scrim=$('#scrim');let openEl=null;
+function show(el){if(openEl&&openEl!==el)openEl.classList.remove('open');openEl=el;el.classList.add('open');scrim.classList.add('open');document.body.classList.add('lock');el.scrollTop=0}
+function hide(){if(!openEl)return;openEl.classList.remove('open');scrim.classList.remove('open');document.body.classList.remove('lock');if(document.activeElement)document.activeElement.blur();openEl=null;render()}
+scrim.onclick=hide;document.addEventListener('keydown',e=>{if(e.key==='Escape')hide()});
+const statusHTML=()=>ST.map(s=>`<button class="st" data-s="${s.id}" style="--s:var(${s.v})" aria-pressed="false"><i></i>${s.name}</button>`).join('');
+const platHTML=()=>PLAT.map(p=>`<button class="chip" data-p="${p}" aria-pressed="false">${p}</button>`).join('');
+const press=(root,attr,val)=>root.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset[attr]===val)));
+function setStatus(g,s){
+  if(g.status===s)return;g.status=s;
+  if(s==='playing'&&!g.started)g.started=ymd(today);
+  if(s==='clear'){g.finished=ymd(today);if(!g.started)g.started=ymd(today)}else g.finished=null;
+}
+
+/* add */
+const A={plat:'Switch',status:'backlog',pick:null};
+$('#addStatus').innerHTML=statusHTML();$('#addPlat').innerHTML=platHTML();
+const addPicker=picker($('#addPicker'),p=>{A.pick=p});
+function openAdd(){A.plat='Switch';A.status='backlog';A.pick=null;$('#addTitle').value='';addPicker.reset();
+  press($('#addStatus'),'s',A.status);press($('#addPlat'),'p',A.plat);$('#addSave').disabled=true;show($('#addSheet'));setTimeout(()=>$('#addTitle').focus(),320)}
+$('#addBtn').onclick=openAdd;
+$('#addTitle').addEventListener('input',()=>{$('#addSave').disabled=!$('#addTitle').value.trim()});
+$('#addTitle').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#addTitle').blur();addPicker.search($('#addTitle').value)}});
+$('#addSearch').onclick=()=>{$('#addTitle').blur();addPicker.search($('#addTitle').value)};
+$('#addStatus').onclick=e=>{const b=e.target.closest('button');if(b){A.status=b.dataset.s;press($('#addStatus'),'s',A.status)}};
+$('#addPlat').onclick=e=>{const b=e.target.closest('button');if(b){A.plat=b.dataset.p;press($('#addPlat'),'p',A.plat)}};
+$('#addSave').onclick=async()=>{
+  const t=$('#addTitle').value.trim();if(!t)return;
+  const g={id:uid(),title:t,plat:A.plat,status:'backlog',hours:0,rating:0,memo:'',started:null,finished:null,added:ymd(today)};
+  setStatus(g,A.status);data.games.push(g);persist();
+  const pick=A.pick;hide();toast(`${ST.find(s=>s.id===g.status).name}에 추가했어요`);
+  if(pick){await applyPick(g,pick);render()}
+};
+
+/* detail */
+let cur=null;
+$('#dStatus').innerHTML=statusHTML();$('#dPlat').innerHTML=platHTML();
+$('#dRate').innerHTML=[1,2,3,4,5].map(i=>`<button data-r="${i}" aria-label="${i}점">★</button>`).join('');
+const dPicker=picker($('#dPicker'),async p=>{if(p&&cur){await applyPick(cur,p);paintDetail();toast('커버를 바꿨어요')}});
+function paintDetail(){
+  const g=cur;
+  $('#dCover').innerHTML=cv(g);hydrate($('#dCover'));
+  $('#dTitle').textContent=g.title;
+  const bits=[];if(g.started)bits.push(`${md(g.started)} 시작`);if(g.finished)bits.push(`${md(g.finished)} 엔딩`);if(!g.started)bits.push(`${md(g.added)} 추가`);
+  $('#dMeta').textContent=bits.join(' · ');
+  press($('#dStatus'),'s',g.status);press($('#dPlat'),'p',g.plat);
+  $('#dHours').value=g.hours||0;
+  $('#rateField').hidden=!(g.status==='clear'||g.status==='drop');
+  $('#dRate').querySelectorAll('button').forEach(b=>b.classList.toggle('on',+b.dataset.r<=g.rating));
+}
+function openDetail(id){cur=data.games.find(g=>g.id===id);if(!cur)return;$('#dMemo').value=cur.memo||'';$('#dPickerField').hidden=true;disarm();paintDetail();show($('#detail'))}
+$('#dCoverBtn').onclick=()=>{const f=$('#dPickerField');f.hidden=!f.hidden;if(!f.hidden){$('#dQuery').value=cur.q||cur.title;dPicker.search($('#dQuery').value)}};
+$('#dSearch').onclick=()=>{$('#dQuery').blur();dPicker.search($('#dQuery').value)};
+$('#dQuery').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#dQuery').blur();dPicker.search($('#dQuery').value)}});
+$('#dStatus').onclick=e=>{const b=e.target.closest('button');if(!b||!cur)return;const was=cur.status;setStatus(cur,b.dataset.s);persist();paintDetail();if(cur.status==='clear'&&was!=='clear')toast('엔딩 축하해요')};
+$('#dPlat').onclick=e=>{const b=e.target.closest('button');if(b&&cur){cur.plat=b.dataset.p;persist();paintDetail()}};
+const setHours=v=>{cur.hours=Math.max(0,Math.min(9999,Math.round(+v||0)));$('#dHours').value=cur.hours;persist()};
+$('#hMinus').onclick=()=>setHours((cur.hours||0)-1);$('#hPlus').onclick=()=>setHours((cur.hours||0)+1);
+$('#dHours').addEventListener('change',()=>setHours($('#dHours').value));
+$('#dRate').onclick=e=>{const b=e.target.closest('button');if(!b||!cur)return;const r=+b.dataset.r;cur.rating=cur.rating===r?0:r;persist();paintDetail()};
+$('#dMemo').addEventListener('input',()=>{if(cur){cur.memo=$('#dMemo').value.trim();persist()}});
+$('#dDone').onclick=hide;
+let armT;const del=$('#dDel');
+function disarm(){clearTimeout(armT);del.classList.remove('armed');del.textContent='삭제'}
+del.onclick=()=>{
+  if(!del.classList.contains('armed')){del.classList.add('armed');del.textContent='정말 삭제';armT=setTimeout(disarm,2500);return}
+  const i=data.games.indexOf(cur);if(i<0)return;const [g]=data.games.splice(i,1);persist();hide();
+  toast('삭제했어요',()=>{data.games.push(g);persist();render()});
+};
+$('#sampleClear').onclick=()=>{const ex=data.games.filter(g=>g.ex);data.games=data.games.filter(g=>!g.ex);persist();render();
+  toast('예시 게임을 지웠어요',()=>{data.games.push(...ex);persist();render()})};
+
+/* toast */
+let tT,undo=null;
+function toast(msg,fn){$('#toastText').textContent=msg;undo=fn||null;$('#undoBtn').hidden=!fn;$('#toast').classList.add('show');clearTimeout(tT);
+  tT=setTimeout(()=>{$('#toast').classList.remove('show');if(fn&&undo===fn){undo=null;gcCovers()}},fn?4500:2000)}
+$('#undoBtn').onclick=()=>{if(undo){undo();undo=null}$('#toast').classList.remove('show')};
+
+render();
+fetchExampleCovers();
+setTimeout(gcCovers,3000);
+})();
+</script>
