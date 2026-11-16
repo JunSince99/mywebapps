@@ -179,6 +179,52 @@ svg{display:block}
   background:var(--ink);color:var(--bg);font-size:14px;font-weight:600;white-space:nowrap;opacity:0;transform:translate(-50%,10px);pointer-events:none;transition:opacity .2s,transform .25s var(--ease)}
 .toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 .toast button{margin:-4px -10px -4px 4px;padding:4px 10px;border-radius:999px;font-weight:700;color:var(--bg);background:rgba(0,0,0,.12)}
+/* header button */
+.iconbtn{width:38px;height:38px;margin-bottom:2px;display:grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.1);color:var(--ink)}
+.iconbtn svg{width:20px;height:20px}
+/* backlog tools */
+.sec-head .right{display:flex;align-items:center;gap:8px}
+.pickbtn{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 12px;border-radius:15px;background:var(--surface);font-size:13px;font-weight:700;color:var(--backlog)}
+.pickbtn svg{width:15px;height:15px}
+.pickbtn.big{height:40px;padding:0 18px;border-radius:20px;margin-top:12px;font-size:14.5px;background:var(--raise)}
+.sorts{display:flex;gap:6px;margin:-2px 0 14px}
+.sorts button{height:30px;padding:0 12px;border-radius:15px;background:var(--surface);font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.sorts button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.plat-h{grid-column:1/-1;display:flex;gap:6px;align-items:baseline;margin-top:4px;font-size:13px;font-weight:700;color:var(--ink-2)}
+.plat-h:first-child{margin-top:0}
+.plat-h span{font-weight:600;color:var(--ink-3)}
+.nextb{position:absolute;left:6%;top:5%;padding:3px 6px;border-radius:5px;background:var(--backlog);color:#1d1404;font-size:max(8px,7.5cqw);font-weight:800;letter-spacing:.04em}
+.year{display:flex;gap:6px;align-items:baseline;margin:2px 0 10px;font-size:13px;font-weight:700;color:var(--ink-2)}
+.year span{font-weight:600;color:var(--ink-3)}
+.shelf+.year{margin-top:18px}
+/* detail: next toggle */
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:12px 14px;border-radius:12px;background:var(--raise);text-align:left}
+.toggle span{display:flex;flex-direction:column;gap:2px}
+.toggle b{font-size:15px;font-weight:600}
+.toggle small{font-size:12.5px;color:var(--ink-2)}
+.sw{flex:none;position:relative;width:48px;height:29px;border-radius:15px;background:var(--raise-2);transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:23px;height:23px;border-radius:50%;background:#fff;transition:transform .22s var(--ease)}
+.sw.on{background:var(--backlog)}
+.sw.on::after{transform:translateX(19px)}
+/* pick sheet */
+.k2{font-size:13px;font-weight:700;color:var(--backlog);letter-spacing:.02em}
+#pCover{width:min(46vw,180px)}
+#pCover.deal{animation:deal .38s var(--ease)}
+@keyframes deal{from{transform:translateY(14px) rotate(-5deg) scale(.93);opacity:0}}
+.btn.alt{flex:none;width:120px;background:var(--raise);color:var(--ink)}
+/* settings */
+.rows{display:flex;flex-direction:column;padding:0 14px;border-radius:14px;background:var(--raise)}
+.srow{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding-block:14px;text-align:left;cursor:pointer}
+.rows>.srow~.srow{border-top:1px solid var(--raise-2)}
+.srow span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.srow b{font-size:15.5px;font-weight:600}
+.srow small{font-size:12.5px;color:var(--ink-2)}
+.srow svg{flex:none;width:18px;height:18px;color:var(--ink-3)}
+.srow:active{opacity:.6}
+.srow.danger b{color:var(--drop)}
+.srow.danger.armed small{color:var(--drop);font-weight:700}
+.srow.ready b{color:var(--clear)}
+.sfoot{margin:0;font-size:12.5px;line-height:1.55;color:var(--ink-3)}
 @media (prefers-reduced-motion:reduce){*{transition-duration:0s!important;animation:none!important}}
 </style>
 
@@ -186,7 +232,7 @@ svg{display:block}
 <main class="app">
   <div class="stage">
     <div class="backdrop" aria-hidden="true"><i id="bd1"></i><i id="bd2"></i><b></b></div>
-    <div class="top pad"><h1>게임</h1></div>
+    <div class="top pad"><h1>게임</h1><button class="iconbtn" id="setBtn" aria-label="설정"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7.5h9M19 7.5h1M4 16.5h3M13 16.5h7"/><circle cx="16" cy="7.5" r="2.5"/><circle cx="10" cy="16.5" r="2.5"/></svg></button></div>
     <div id="heroArea"></div>
   </div>
   <div class="pad">
@@ -214,12 +260,32 @@ svg{display:block}
     <div class="in"><div id="dCover"></div><h4 id="dTitle"></h4><p id="dMeta"></p><button class="linkbtn" id="dCoverBtn">커버 바꾸기</button></div></div>
   <div class="field" id="dPickerField" hidden><div class="searchrow"><input class="input" id="dQuery" maxlength="80" autocomplete="off" enterkeyhint="search"><button id="dSearch">찾기</button></div><div id="dPicker"></div></div>
   <div class="field"><span class="label">상태</span><div class="status" id="dStatus"></div></div>
+  <div class="field" id="nextField"><button class="toggle" id="dNext"><span><b>다음에 할 게임</b><small>쌓아둔 게임 맨 앞에 NEXT로 보여요</small></span><i class="sw"></i></button></div>
   <div class="field"><label class="label" for="dHours">플레이 시간</label>
     <div class="hours"><button id="hMinus" aria-label="1시간 빼기">−</button><input id="dHours" type="number" inputmode="numeric" min="0" max="9999"><button id="hPlus" aria-label="1시간 더하기">+</button><span>시간</span></div></div>
   <div class="field" id="rateField"><span class="label">평점</span><div class="rate" id="dRate"></div></div>
   <div class="field"><label class="label" for="dMemo">한 줄 메모</label><input class="input" id="dMemo" placeholder="어땠어요?" maxlength="60" autocomplete="off"></div>
   <div class="field"><span class="label">플랫폼</span><div class="chips" id="dPlat"></div></div>
   <div class="actions"><button class="btn ghost" id="dDel">삭제</button><button class="btn" id="dDone">완료</button></div>
+</div>
+
+<div class="sheet" id="pickSheet" role="dialog" aria-modal="true" aria-labelledby="pTitle" tabindex="-1">
+  <div class="dhead"><div class="bg" id="pBg"></div><div class="fd"></div><span class="grab"></span><button class="close" data-close aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="in"><span class="k2">오늘은 이거 어때요?</span><div id="pCover"></div><h4 id="pTitle"></h4><p id="pMeta"></p></div></div>
+  <div class="actions"><button class="btn alt" id="pAgain">다른 거</button><button class="btn" id="pGo">이거 할래</button></div>
+</div>
+
+<div class="sheet" id="settings" role="dialog" aria-modal="true" aria-labelledby="sH" tabindex="-1">
+  <span class="grab"></span>
+  <div class="sheet-head"><h4 id="sH">설정</h4><button class="close" data-close aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="rows">
+    <button class="srow" id="expBtn"><span><b id="expTitle">백업 내보내기</b><small id="expSub">게임 기록과 커버를 파일 하나로 저장해요</small></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+    <label class="srow" for="impFile"><span><b>백업 가져오기</b><small>내보낸 백업 파일에서 불러와요</small></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></label>
+    <button class="srow" id="exClear"><span><b>예시 게임 지우기</b><small>처음에 들어 있던 예시만 지워요</small></span></button>
+    <button class="srow danger" id="allClear"><span><b>모든 기록 지우기</b><small id="allClearSub">게임과 커버를 모두 지워요</small></span></button>
+  </div>
+  <input type="file" id="impFile" class="vh" tabindex="-1">
+  <p class="sfoot" id="setFoot"></p>
 </div>
 
 <div class="toast" id="toast" role="status"><span id="toastText"></span><button id="undoBtn" hidden>되돌리기</button></div>
@@ -331,25 +397,38 @@ function art(title){
   else s=`<polygon points="0,290 120,110 205,230 250,170 300,240 300,400 0,400" fill="${c3}"/><circle cx="235" cy="85" r="34" fill="${c2}"/>`;
   return {c1,svg:`<svg viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${s}</svg>`};
 }
+/* covers already on the device are drawn with their image straight away, so redrawing the page never blanks them */
+const knownSrc=g=>urls[g.id]||g.coverUrl||null;
 function cv(g,{badge=true}={}){
-  const a=art(g.title);
-  return `<span class="cv" data-cover="${g.id}" style="--c1:${a.c1}">${a.svg}<span class="gt">${esc(g.title)}</span><img alt="">${badge&&g.status==='clear'?'<span class="badge">CLEAR</span>':''}</span>`;
+  const a=art(g.title),src=knownSrc(g);
+  return `<span class="cv" data-cover="${g.id}" style="--c1:${a.c1}">${a.svg}<span class="gt">${esc(g.title)}</span>`+
+    `<img alt="" decoding="sync"${src?` src="${esc(src)}" class="ok"`:''}>`+
+    (badge&&g.status==='clear'?'<span class="badge">CLEAR</span>':'')+(badge&&g.next&&g.status==='backlog'?'<span class="nextb">NEXT</span>':'')+`</span>`;
 }
+const showImg=(img,src)=>{img.onload=()=>img.classList.add('ok');img.onerror=()=>img.classList.remove('ok');img.src=src};
 async function hydrate(root=document){
-  if(root===document&&heroGames[heroIdx])coverSrc(heroGames[heroIdx]).then(src=>{if(src)setBackdrop(src)});
   for(const el of root.querySelectorAll('[data-cover]')){
+    const img=el.querySelector('img');if(img.getAttribute('src'))continue;
     const g=data.games.find(x=>x.id===el.dataset.cover);if(!g)continue;
-    const src=await coverSrc(g);if(!src)continue;
-    const img=el.querySelector('img');
-    if(img.getAttribute('src')!==src){img.onload=()=>img.classList.add('ok');img.onerror=()=>img.classList.remove('ok');img.src=src}
+    const src=await coverSrc(g);if(src)showImg(img,src);
   }
+}
+/* swap in one game's cover wherever it is shown, without redrawing anything else */
+function refreshCover(g){
+  const src=knownSrc(g);if(!src)return;
+  document.querySelectorAll(`[data-cover="${g.id}"] img`).forEach(img=>{if(img.getAttribute('src')!==src){img.classList.remove('ok');showImg(img,src)}});
+  if(heroGames[heroIdx]===g)setBackdrop(src);
+  if(cur===g)$('#dBg').style.backgroundImage=`url("${src}")`;
+  if(pickCur===g)$('#pBg').style.backgroundImage=`url("${src}")`;
 }
 
 /* ---------- home ---------- */
 function render(){
   const by=s=>data.games.filter(g=>g.status===s);
   const playing=by('playing').sort((a,b)=>(b.started||'').localeCompare(a.started||''));
-  const backlog=by('backlog').sort((a,b)=>b.added.localeCompare(a.added));
+  const order={recent:(a,b)=>b.added.localeCompare(a.added),name:(a,b)=>a.title.localeCompare(b.title,'ko'),
+    plat:(a,b)=>(PLAT.indexOf(a.plat)-PLAT.indexOf(b.plat))||a.title.localeCompare(b.title,'ko')};
+  const backlog=by('backlog').sort((a,b)=>((b.next?1:0)-(a.next?1:0))||order[sortMode](a,b));
   const clear=by('clear').sort((a,b)=>(b.finished||'').localeCompare(a.finished||''));
   const drop=by('drop');
   const total=data.games.reduce((t,g)=>t+(g.hours||0),0);
@@ -370,7 +449,7 @@ function render(){
        <div><div class="k">이어서 하기</div><h2>${esc(g.title)}</h2><p>${g.hours||0}시간${g.started?` · ${daysSince(g.started)}일째`:''} · ${esc(g.plat)}</p>
        <div class="qa"><button data-act="hour" data-g="${g.id}">+1시간</button><button class="end" data-act="clear" data-g="${g.id}">엔딩 봤어요</button></div></div></div></div>`).join('')}</div>`
       +(playing.length>1?`<div class="dots" id="dots">${playing.map((_,i)=>`<i class="${i?'':'on'}"></i>`).join('')}</div>`:'')
-    :`<div class="hero-empty">지금 하는 게임이 없어요.<br>쌓아둔 게임을 눌러 "하는 중"으로 바꿔 보세요.</div>`;
+    :`<div class="hero-empty">지금 하는 게임이 없어요.${backlog.length?`<br><button class="pickbtn big" data-act="pick">${DICE}쌓아둔 게임에서 골라줘</button>`:''}</div>`;
   const hs=$('#heroes');
   if(hs){
     const idx=Math.min(prevIdx,playing.length-1);hs.scrollLeft=idx*hs.clientWidth;heroIdx=-1;onHero(idx);
@@ -380,15 +459,27 @@ function render(){
   const tile=(g,sub)=>`<button class="tile" data-id="${g.id}">${cv(g)}<b>${esc(g.title)}</b>${sub||''}</button>`;
   const starsHTML=n=>n?`<span class="stars">${'★'.repeat(n)}<span>${'★'.repeat(5-n)}</span></span>`:'';
   let h='';
-  h+=`<section class="sec"><div class="sec-head"><h3>쌓아둔 게임</h3><span>${backlog.length}</span></div>`+
-     (backlog.length?`<div class="grid">${backlog.map(g=>tile(g,`<small>${esc(g.plat)}</small>`)).join('')}</div>`:`<div class="hero-empty" style="margin:0">쌓인 게임이 없어요. 대단해요.</div>`)+`</section>`;
-  if(clear.length)h+=`<section class="sec"><div class="sec-head"><h3>엔딩 본 게임</h3><span>${clear.length}</span></div><div class="shelf">${clear.map(g=>tile(g,`<small>${g.finished?md(g.finished).slice(0,7):''}${g.hours?` · ${g.hours}h`:''}</small>${starsHTML(g.rating)}`)).join('')}</div></section>`;
+  let grid;
+  if(sortMode==='plat'){const grp={};backlog.forEach(g=>(grp[g.plat]=grp[g.plat]||[]).push(g));
+    grid=PLAT.filter(p=>grp[p]).map(p=>`<div class="plat-h">${p}<span>${grp[p].length}</span></div>${grp[p].map(g=>tile(g)).join('')}`).join('')}
+  else grid=backlog.map(g=>tile(g,`<small>${esc(g.plat)}</small>`)).join('');
+  h+=`<section class="sec"><div class="sec-head"><h3>쌓아둔 게임</h3><div class="right">${backlog.length?`<button class="pickbtn" data-act="pick">${DICE}골라줘</button>`:''}<span>${backlog.length}</span></div></div>`+
+     (backlog.length>1?`<div class="sorts">${[['recent','최근 추가'],['name','이름순'],['plat','플랫폼별']].map(([k,l])=>`<button data-sort="${k}" aria-pressed="${sortMode===k}">${l}</button>`).join('')}</div>`:'')+
+     (backlog.length?`<div class="grid">${grid}</div>`:`<div class="hero-empty" style="margin:0">쌓인 게임이 없어요. 대단해요.</div>`)+`</section>`;
+  if(clear.length){
+    const yrs={};clear.forEach(g=>{const y=(g.finished||'').slice(0,4)||'날짜 없음';(yrs[y]=yrs[y]||[]).push(g)});
+    h+=`<section class="sec"><div class="sec-head"><h3>엔딩 본 게임</h3><span>${clear.length}</span></div>`+
+      Object.keys(yrs).sort().reverse().map(y=>`<div class="year">${/^\d{4}$/.test(y)?y+'년':y}<span>${yrs[y].length}개</span></div><div class="shelf">${yrs[y].map(g=>
+        tile(g,`<small>${g.finished?+g.finished.slice(5,7)+'월':''}${g.hours?` · ${g.hours}h`:''}</small>${starsHTML(g.rating)}`)).join('')}</div>`).join('')+`</section>`;
+  }
   if(drop.length)h+=`<section class="sec dropped"><div class="sec-head"><h3>그만둔 게임</h3><span>${drop.length}</span></div><div class="shelf">${drop.map(g=>tile(g,`<small>${g.hours?`${g.hours}시간에서 멈춤`:'시작만 함'}</small>`)).join('')}</div></section>`;
   $('#sections').innerHTML=h;
   hydrate();
 }
 /* hero carousel: dots + the blurred backdrop follow the visible game */
-let heroGames=[],heroIdx=-1,bdFront=1;
+let heroGames=[],heroIdx=-1,bdFront=1,pickCur=null,cur=null;
+let sortMode=(()=>{try{const m=localStorage.getItem('games.sort');return m==='name'||m==='plat'?m:'recent'}catch(e){return 'recent'}})();
+const DICE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path stroke-width="3" d="M9 9h.01M15 15h.01M15 9h.01M9 15h.01"/></svg>';
 function onHero(i){
   if(i===heroIdx||!heroGames[i])return;heroIdx=i;
   const d=$('#dots');if(d)d.querySelectorAll('i').forEach((x,j)=>x.classList.toggle('on',i===j));
@@ -401,7 +492,10 @@ function setBackdrop(src){
   back.style.backgroundImage=`url("${src}")`;back.dataset.src=src;back.classList.add('on');front.classList.remove('on');bdFront=3-bdFront;
 }
 document.querySelector('.app').addEventListener('click',e=>{
+  const so=e.target.closest('[data-sort]');
+  if(so){sortMode=so.dataset.sort;try{localStorage.setItem('games.sort',sortMode)}catch(err){}render();return}
   const act=e.target.closest('[data-act]');
+  if(act&&act.dataset.act==='pick'){openPick();return}
   if(act){const g=data.games.find(x=>x.id===act.dataset.g);if(!g)return;
     if(act.dataset.act==='hour'){g.hours=(g.hours||0)+1;persist();render();toast(`${g.hours}시간 플레이했어요`)}
     else{const before={status:g.status,started:g.started,finished:g.finished};setStatus(g,'clear');persist();render();
@@ -414,7 +508,7 @@ window.addEventListener('scroll',()=>$('#bar').classList.toggle('show',scrollY>4
 async function fetchExampleCovers(){
   for(const g of data.games.filter(g=>g.ex&&g.q&&!g.hasCover&&!g.tried)){
     g.tried=true;persist();
-    try{const r=await imagesFor([g.q]);if(r[0]){await setCoverFromUrl(g,r[0].src);render()}}catch(e){}
+    try{const r=await imagesFor([g.q]);if(r[0]){await setCoverFromUrl(g,r[0].src);refreshCover(g)}}catch(e){}
   }
 }
 
@@ -465,7 +559,7 @@ const statusHTML=()=>ST.map(s=>`<button class="st" data-s="${s.id}" style="--s:v
 const platHTML=()=>PLAT.map(p=>`<button class="chip" data-p="${p}" aria-pressed="false">${p}</button>`).join('');
 const press=(root,attr,val)=>root.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset[attr]===val)));
 function setStatus(g,s){
-  if(g.status===s)return;g.status=s;
+  if(g.status===s)return;g.status=s;if(s!=='backlog')g.next=false;
   if(s==='playing'&&!g.started)g.started=ymd(today);
   if(s==='clear'){g.finished=ymd(today);if(!g.started)g.started=ymd(today)}else g.finished=null;
 }
@@ -487,11 +581,10 @@ $('#addSave').onclick=async()=>{
   const g={id:uid(),title:t,plat:A.plat,status:'backlog',hours:0,rating:0,memo:'',started:null,finished:null,added:ymd(today)};
   setStatus(g,A.status);data.games.push(g);persist();
   const pick=A.pick;hide();toast(`${ST.find(s=>s.id===g.status).name}에 추가했어요`);
-  if(pick){await applyPick(g,pick);render()}
+  if(pick){await applyPick(g,pick);refreshCover(g)}
 };
 
 /* detail */
-let cur=null;
 $('#dStatus').innerHTML=statusHTML();$('#dPlat').innerHTML=platHTML();
 $('#dRate').innerHTML=[1,2,3,4,5].map(i=>`<button data-r="${i}" aria-label="${i}점">★</button>`).join('');
 const dPicker=picker($('#dPicker'),async p=>{if(p&&cur){await applyPick(cur,p);paintDetail();toast('커버를 바꿨어요')}});
@@ -505,6 +598,7 @@ function paintDetail(){
   press($('#dStatus'),'s',g.status);press($('#dPlat'),'p',g.plat);
   $('#dHours').value=g.hours||0;
   $('#rateField').hidden=!(g.status==='clear'||g.status==='drop');
+  $('#nextField').hidden=g.status!=='backlog';$('#dNext .sw').classList.toggle('on',!!g.next);
   $('#dRate').querySelectorAll('button').forEach(b=>b.classList.toggle('on',+b.dataset.r<=g.rating));
 }
 function openDetail(id){cur=data.games.find(g=>g.id===id);if(!cur)return;$('#dMemo').value=cur.memo||'';$('#dPickerField').hidden=true;disarm();paintDetail();show($('#detail'))}
@@ -519,6 +613,83 @@ $('#dHours').addEventListener('change',()=>setHours($('#dHours').value));
 $('#dRate').onclick=e=>{const b=e.target.closest('button');if(!b||!cur)return;const r=+b.dataset.r;cur.rating=cur.rating===r?0:r;persist();paintDetail()};
 $('#dMemo').addEventListener('input',()=>{if(cur){cur.memo=$('#dMemo').value.trim();persist()}});
 $('#dDone').onclick=hide;
+$('#dNext').onclick=()=>{if(!cur)return;cur.next=!cur.next;persist();paintDetail()};
+
+/* pick: one game from the pile; games marked NEXT come up more often */
+function openPick(){
+  const pool=data.games.filter(g=>g.status==='backlog');if(!pool.length)return;
+  const bag=[];(pool.length>1?pool.filter(g=>g!==pickCur):pool).forEach(g=>{for(let i=0;i<(g.next?3:1);i++)bag.push(g)});
+  pickCur=bag[Math.floor(Math.random()*bag.length)];
+  const g=pickCur,src=knownSrc(g),pc=$('#pCover');
+  pc.innerHTML=cv(g);hydrate(pc);pc.classList.remove('deal');void pc.offsetWidth;pc.classList.add('deal');
+  $('#pBg').style.backgroundImage=src?`url("${src}")`:'none';
+  $('#pTitle').textContent=g.title;
+  const d=daysSince(g.added)-1;$('#pMeta').textContent=`${g.plat} · ${d>0?d+'일째 쌓여 있어요':'오늘 추가한 게임'}`;
+  $('#pAgain').hidden=pool.length<2;
+  if(openEl!==$('#pickSheet'))show($('#pickSheet'));
+}
+$('#pAgain').onclick=openPick;
+$('#pGo').onclick=()=>{const g=pickCur;if(!g)return;setStatus(g,'playing');persist();hide();window.scrollTo({top:0,behavior:'smooth'});toast('좋아요, 이제 하는 중이에요')};
+
+/* settings: backup with covers, example and full reset */
+const blobToDataURL=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(b)});
+const dataURLToBlob=du=>{const [h,b64]=du.split(',');const mime=(h.match(/data:([^;]+)/)||[])[1]||'image/jpeg';const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Blob([u],{type:mime})};
+const okDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||''))?s:null;
+let prepared=null;
+function openSettings(){
+  prepared=null;$('#expBtn').classList.remove('ready');$('#expTitle').textContent='백업 내보내기';$('#expSub').textContent='게임 기록과 커버를 파일 하나로 저장해요';
+  $('#exClear').hidden=!data.games.some(g=>g.ex);disarmAll();
+  const real=data.games.filter(g=>!g.ex),covers=real.filter(g=>g.hasCover).length;
+  $('#setFoot').textContent=`기록과 커버는 이 기기에만 저장돼요. 지금 게임 ${real.length}개, 커버 ${covers}개가 있어요. 기기를 바꾸거나 앱을 다시 설치하기 전에 백업을 내보내 두세요.`;
+  show($('#settings'));
+}
+$('#setBtn').onclick=openSettings;
+$('#expBtn').onclick=async()=>{
+  if(prepared){ /* second tap: hand the file to the share sheet (iOS needs a fresh tap for this) */
+    const {blob,name}=prepared;
+    try{const file=new File([blob],name,{type:'application/json'});
+      if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});toast('백업을 내보냈어요');return}}
+    catch(err){if(err&&err.name==='AbortError')return}
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    toast('백업 파일을 만들었어요');return;
+  }
+  $('#expSub').textContent='파일을 만드는 중…';
+  const games=data.games.filter(g=>!g.ex),covers={};
+  for(const g of games){try{const b=await idb.get(g.id);if(b)covers[g.id]=await blobToDataURL(b)}catch(err){}}
+  const blob=new Blob([JSON.stringify({format:'games-backup',version:1,exportedAt:new Date().toISOString(),games,covers})],{type:'application/json'});
+  prepared={blob,name:`games-backup-${ymd(today)}.json`};
+  $('#expBtn').classList.add('ready');$('#expTitle').textContent='준비됐어요. 눌러서 저장하기';
+  $('#expSub').textContent=`게임 ${games.length}개, 커버 ${Object.keys(covers).length}개 · ${(blob.size/1048576).toFixed(1)}MB`;
+};
+$('#impFile').addEventListener('change',async e=>{
+  const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;
+  let obj;try{obj=JSON.parse(await f.text())}catch(err){toast('백업 파일을 읽지 못했어요');return}
+  if(!obj||obj.format!=='games-backup'||!Array.isArray(obj.games)){toast('게임 백업 파일이 아니에요');return}
+  data.games=data.games.filter(g=>!g.ex);
+  const have=new Set(data.games.map(g=>g.id));let added=0,skipped=0;
+  for(const g of obj.games){
+    if(!g||g.id==null||!g.title)continue;
+    if(have.has(String(g.id))){skipped++;continue}
+    const n={id:String(g.id),title:String(g.title).slice(0,80),plat:PLAT.includes(g.plat)?g.plat:'기타',status:ST.some(s=>s.id===g.status)?g.status:'backlog',
+      hours:Math.max(0,Math.min(9999,Math.round(+g.hours||0))),rating:Math.max(0,Math.min(5,Math.round(+g.rating||0))),memo:String(g.memo||'').slice(0,60),
+      started:okDate(g.started),finished:okDate(g.finished),added:okDate(g.added)||ymd(today),next:!!g.next,hasCover:false};
+    if(g.q)n.q=String(g.q).slice(0,120);
+    const du=obj.covers&&obj.covers[g.id];
+    if(typeof du==='string'&&/^data:image\/(jpeg|png|webp|gif);base64,/.test(du)){try{const b=dataURLToBlob(du);await idb.set(n.id,b);urls[n.id]=URL.createObjectURL(b);n.hasCover=true}catch(err){}}
+    else if(typeof g.coverUrl==='string'&&/^https:\/\//.test(g.coverUrl)){n.coverUrl=g.coverUrl;n.hasCover=true}
+    data.games.push(n);have.add(n.id);added++;
+  }
+  persist();hide();toast(skipped?`${added}개 가져옴, 중복 ${skipped}개 제외`:`${added}개 게임을 가져왔어요`);
+});
+$('#exClear').onclick=()=>{hide();clearExamples()};
+let allT;
+function disarmAll(){clearTimeout(allT);$('#allClear').classList.remove('armed');$('#allClearSub').textContent='게임과 커버를 모두 지워요'}
+$('#allClear').onclick=()=>{
+  const b=$('#allClear');
+  if(!b.classList.contains('armed')){b.classList.add('armed');$('#allClearSub').textContent='한 번 더 누르면 모두 지워져요';allT=setTimeout(disarmAll,3000);return}
+  const prev=data.games;data.games=[];persist();hide();
+  toast('모든 기록을 지웠어요',()=>{data.games=prev;persist();render()});
+};
 let armT;const del=$('#dDel');
 function disarm(){clearTimeout(armT);del.classList.remove('armed');del.textContent='삭제'}
 del.onclick=()=>{
@@ -526,8 +697,9 @@ del.onclick=()=>{
   const i=data.games.indexOf(cur);if(i<0)return;const [g]=data.games.splice(i,1);persist();hide();
   toast('삭제했어요',()=>{data.games.push(g);persist();render()});
 };
-$('#sampleClear').onclick=()=>{const ex=data.games.filter(g=>g.ex);data.games=data.games.filter(g=>!g.ex);persist();render();
-  toast('예시 게임을 지웠어요',()=>{data.games.push(...ex);persist();render()})};
+function clearExamples(){const ex=data.games.filter(g=>g.ex);data.games=data.games.filter(g=>!g.ex);persist();render();
+  toast('예시 게임을 지웠어요',()=>{data.games.push(...ex);persist();render()})}
+$('#sampleClear').onclick=clearExamples;
 
 /* toast */
 let tT,undo=null;
@@ -535,8 +707,10 @@ function toast(msg,fn){$('#toastText').textContent=msg;undo=fn||null;$('#undoBtn
   tT=setTimeout(()=>{$('#toast').classList.remove('show');if(fn&&undo===fn){undo=null;gcCovers()}},fn?4500:2000)}
 $('#undoBtn').onclick=()=>{if(undo){undo();undo=null}$('#toast').classList.remove('show')};
 
-render();
-fetchExampleCovers();
-setTimeout(gcCovers,3000);
+/* open: load saved covers first, then draw once */
+(async()=>{
+  try{for(const k of await idb.keys())if(!urls[k]){const b=await idb.get(k);if(b)urls[k]=URL.createObjectURL(b)}}catch(e){}
+  render();fetchExampleCovers();setTimeout(gcCovers,3000);
+})();
 })();
 </script>
