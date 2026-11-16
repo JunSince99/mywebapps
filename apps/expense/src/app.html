@@ -1,4 +1,4 @@
-<title>한푼</title>
+<title>지출 기록</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
 /* Layout: one phone-width column, sticky month bar on top, tab bar with a center add button, bottom sheets for input and settings. */
@@ -244,7 +244,7 @@ button.g-row:active{opacity:.6}
 
 @media (prefers-reduced-motion:reduce){*,*::before{transition-duration:0s!important;animation:none!important}}
 </style>
-<script>try{var t=localStorage.getItem('hanpun.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<script>try{var t=localStorage.getItem('expense.theme')||localStorage.getItem('hanpun.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
 
 <header class="topbar" id="topbar">
   <div class="topbar-in">
@@ -368,7 +368,9 @@ button.g-row:active{opacity:.6}
 
 <script>
 (function(){
-const KEY='hanpun.v1', THEME_KEY='hanpun.theme';
+const KEY='expense.v1', THEME_KEY='expense.theme';
+/* storage keys were hanpun.* before the app was renamed; carry them over once */
+try{[['hanpun.v1',KEY],['hanpun.theme',THEME_KEY]].forEach(([o,n])=>{const v=localStorage.getItem(o);if(v!==null&&localStorage.getItem(n)===null)localStorage.setItem(n,v)})}catch(e){}
 const VER='__APP_VERSION__';
 const IC={
   food:'<path d="M6 3v6a2 2 0 0 0 4 0V3M8 3v18M18 21V3c-2 1-3 4-3 8h3"/>',
@@ -731,7 +733,7 @@ function parseBackup(obj){
         memo:[e.description,e.memo].filter(Boolean).join(' · ').slice(0,60),date:e.spentOn,
         ts:Date.parse(e.createdAt)||Date.now()}))};
   }
-  if(obj&&obj.format==='hanpun-backup'&&Array.isArray(obj.items)){
+  if(obj&&(obj.format==='expense-backup'||obj.format==='hanpun-backup')&&Array.isArray(obj.items)){
     const refunds={};
     Object.entries(obj.refunds||{}).forEach(([k,v])=>{if(/^\d{4}-\d{2}$/.test(k)&&Number(v)>0)refunds[k]=Math.round(Number(v))});
     return {refunds,items:obj.items
@@ -754,8 +756,8 @@ $('#importFile').addEventListener('change',async e=>{
   toast(skipped?`${added}건 가져옴, 중복 ${skipped}건 제외`:`${added}건을 가져왔어요`);
 });
 $('#exportBtn').onclick=async()=>{
-  const payload={format:'hanpun-backup',version:1,exportedAt:new Date().toISOString(),items:data.items.filter(i=>!i.ex),refunds:data.refunds};
-  const name=`hanpun-backup-${TODAY}.json`;
+  const payload={format:'expense-backup',version:1,exportedAt:new Date().toISOString(),items:data.items.filter(i=>!i.ex),refunds:data.refunds};
+  const name=`expense-backup-${TODAY}.json`;
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   try{
     const file=new File([blob],name,{type:'application/json'});

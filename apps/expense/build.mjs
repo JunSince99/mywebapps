@@ -1,5 +1,5 @@
-// Builds 한푼 (installable web app) from src/app.html.
-// Output goes to the folder given as the first argument (the root build passes dist/hanpun),
+// Builds 지출 기록 (installable web app) from src/app.html.
+// Output goes to the folder given as the first argument (the root build passes dist/expense),
 // or to ./dist when run on its own. Paths are relative, so the app works under any URL prefix.
 import { readFileSync, writeFileSync, rmSync, mkdirSync, cpSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -13,7 +13,7 @@ const swTemplate = readFileSync('tools/sw.template.js', 'utf8');
 const raw = readFileSync('src/app.html', 'utf8');
 const version = createHash('sha256').update(raw + swTemplate + readFileSync('build.mjs', 'utf8')).digest('hex').slice(0, 10);
 const src = raw.replaceAll('__APP_VERSION__', version);
-const title = (src.match(/<title>([\s\S]*?)<\/title>/) || [, '한푼'])[1];
+const title = (src.match(/<title>([\s\S]*?)<\/title>/) || [, '지출 기록'])[1];
 const style = src.match(/<style>[\s\S]*?<\/style>/)[0];
 const body = src
   .replace(/<title>[\s\S]*?<\/title>\s*/, '')

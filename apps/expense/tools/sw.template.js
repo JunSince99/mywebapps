@@ -1,5 +1,7 @@
 // Offline support. VERSION is replaced at build time so a new build refreshes the cache.
-const CACHE = 'hanpun-__VERSION__';
+// Caches are shared by every app on this origin, so this app only touches caches with its own prefix.
+const PREFIX = 'expense-';
+const CACHE = PREFIX + '__VERSION__';
 const ASSETS = ['./', './index.html', './manifest.webmanifest',
   './icons/apple-touch-icon.png', './icons/icon-192.png', './icons/icon-512.png', './icons/favicon-32.png'];
 
@@ -8,7 +10,7 @@ self.addEventListener('install', e => {
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
-    .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+    .then(keys => Promise.all(keys.filter(k => (k.startsWith(PREFIX) || k.startsWith('hanpun-')) && k !== CACHE).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {

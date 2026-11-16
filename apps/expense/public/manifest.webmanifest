@@ -1,6 +1,6 @@
 {
-  "name": "한푼",
-  "short_name": "한푼",
+  "name": "지출 기록",
+  "short_name": "지출 기록",
   "description": "지출만 빠르게 기록하는 가계부",
   "lang": "ko",
   "start_url": "./",
