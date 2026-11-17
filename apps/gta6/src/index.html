@@ -23,13 +23,13 @@
 [hidden]{display:none!important}
 html,body{margin:0;height:100%;background:var(--sky);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow:hidden;-webkit-user-select:none;user-select:none}
 /* layers, back to front: artwork, logo, the two characters cut out of the same artwork (so the logo sits behind them), fade, countdown */
-.bg,.fg{position:fixed;left:0;right:0;top:0;height:100vh;height:100dvh;background:url("bg-phone.jpg") center 74%/cover no-repeat}
+.bg,.fg{position:fixed;left:0;right:0;top:0;height:100vh;height:var(--h,100dvh);background:url("bg-phone.jpg") center 74%/cover no-repeat}
 .bg{background-color:var(--sky)}
 .fg{background-image:url("fg-phone.webp");pointer-events:none}
 @media (min-aspect-ratio:4/5){.bg,.fg{background-position:center 30%}.bg{background-image:url("bg-wide.jpg")}.fg{background-image:url("fg-wide.webp")}}
-.shade{position:fixed;left:0;right:0;top:calc(100vh - 62vh);top:calc(100dvh - 62dvh);height:62vh;height:62dvh;background:linear-gradient(to top,rgba(var(--night),.96) 0%,rgba(var(--night),.84) 34%,rgba(var(--night),.45) 64%,rgba(var(--night),0) 100%)}
+.shade{position:fixed;left:0;right:0;top:calc(var(--h,100dvh) * .38);height:calc(var(--h,100dvh) * .62);background:linear-gradient(to top,rgba(var(--night),.96) 0%,rgba(var(--night),.84) 34%,rgba(var(--night),.45) 64%,rgba(var(--night),0) 100%)}
 /* anchored to the visible height (dvh) from the top: in a home-screen web app, bottom:0 can sit below the screen */
-main{position:fixed;left:0;right:0;top:0;height:100vh;height:100dvh;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:16px;text-align:center;
+main{position:fixed;left:0;right:0;top:0;height:100vh;height:var(--h,100dvh);display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:16px;text-align:center;
   padding:0 max(16px,env(safe-area-inset-right,0px)) calc(48px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 /* a soft sunset glow behind the numbers ties them to the sky above */
 main::before{content:"";position:absolute;left:50%;bottom:22%;width:120%;height:70%;transform:translateX(-50%);z-index:-1;
@@ -80,6 +80,14 @@ h1{font-size:17px;font-weight:700;letter-spacing:.12em;text-indent:.12em;color:v
 <div class="credit">Artwork © Rockstar Games</div>
 <script>
 // Rockstar: unlocks at midnight local time on 19 Nov 2026 in every region. Korea (UTC+9) → 2026-11-19 00:00 KST.
+/* home-screen app: iOS sometimes reports a visible height that doesn't match the screen, so use the device's own screen height */
+function fitScreen(){
+  const standalone=navigator.standalone||matchMedia('(display-mode: standalone)').matches;
+  if(!standalone){document.documentElement.style.removeProperty('--h');return}
+  const portrait=matchMedia('(orientation: portrait)').matches;
+  document.documentElement.style.setProperty('--h',(portrait?Math.max(screen.height,screen.width):Math.min(screen.height,screen.width))+'px');
+}
+fitScreen();addEventListener('resize',fitScreen);addEventListener('orientationchange',fitScreen);document.addEventListener('visibilitychange',fitScreen);
 const LAUNCH=Date.UTC(2026,10,18,15,0,0);
 const $=id=>document.getElementById(id);
 const p2=n=>String(n).padStart(2,'0');
