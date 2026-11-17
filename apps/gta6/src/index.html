@@ -39,7 +39,11 @@ h1{font-size:17px;font-weight:700;letter-spacing:.12em;text-indent:.12em;color:v
 .unit{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0}
 /* gradient fill is on each glyph (so rolling digits keep it); the glow is on the whole number */
 .fill,.done{background:linear-gradient(180deg,var(--sun-1) 8%,var(--sun-2) 48%,var(--sun-3) 92%);-webkit-background-clip:text;background-clip:text;color:transparent}
-.sun{filter:drop-shadow(0 2px 0 rgba(60,10,40,.4)) drop-shadow(0 8px 22px rgba(255,79,139,.28))}
+/* the glow is a still layer behind the numbers: a filter on the moving digits re-renders every frame and flickers */
+.count{position:relative;isolation:isolate}
+.count::before{content:"";position:absolute;inset:-18% -4% 6%;z-index:-1;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(255,79,139,.32),rgba(255,154,90,.12) 60%,rgba(255,79,139,0));filter:blur(14px)}
+.done{filter:drop-shadow(0 8px 22px rgba(255,79,139,.28))}
 /* each digit is a slot; on change the new digit rolls down from above while the old one rolls out below */
 .slot{display:inline-block;height:.92em;overflow:hidden;vertical-align:top}
 .reel{display:flex;flex-direction:column}
