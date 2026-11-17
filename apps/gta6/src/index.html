@@ -45,7 +45,7 @@ h1{font-size:17px;font-weight:700;letter-spacing:.12em;text-indent:.12em;color:v
 .logo{position:fixed;left:50%;top:calc(26px + env(safe-area-inset-top,0px));width:min(60vw,360px);transform:translateX(-50%);
   filter:drop-shadow(0 6px 22px rgba(40,10,70,.4))}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.tz{display:flex;align-items:center;gap:10px;margin-top:2px;font-size:11.5px;font-weight:700;letter-spacing:.24em;text-indent:.24em;color:var(--warm-2)}
+.tz{display:flex;align-items:center;gap:10px;margin-top:2px;font-size:12px;font-weight:700;letter-spacing:.12em;text-indent:.12em;font-variant-numeric:tabular-nums;color:var(--warm-2)}
 .tz::before,.tz::after{content:"";width:28px;height:1px;background:linear-gradient(90deg,rgba(255,209,163,0),rgba(255,209,163,.55))}
 .tz::after{transform:scaleX(-1)}
 .done{font-size:min(16vw,104px);font-weight:900;letter-spacing:-.03em;line-height:1}
@@ -70,7 +70,7 @@ h1{font-size:17px;font-weight:700;letter-spacing:.12em;text-indent:.12em;color:v
     <div class="unit"><b class="sun" id="m">00</b><span>분</span></div><span class="colon">:</span>
     <div class="unit"><b class="sun" id="s">00</b><span>초</span></div>
   </div>
-  <div class="tz" id="tz">한국 시간 기준</div>
+  <div class="tz" id="tz">대한민국 시간대 (GMT+9)</div>
 </main>
 <div class="credit">Artwork © Rockstar Games</div>
 <script>
