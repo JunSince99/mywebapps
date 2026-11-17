@@ -22,8 +22,11 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0;height:100%;background:var(--sky);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow:hidden;-webkit-user-select:none;user-select:none}
-.bg{position:fixed;inset:0;background:var(--sky) url("bg-phone.jpg") center 74%/cover no-repeat}
-@media (min-aspect-ratio:4/5){.bg{background-image:url("bg-wide.jpg");background-position:center 30%}}
+/* layers, back to front: artwork, logo, the two characters cut out of the same artwork (so the logo sits behind them), fade, countdown */
+.bg,.fg{position:fixed;inset:0;background:url("bg-phone.jpg") center 74%/cover no-repeat}
+.bg{background-color:var(--sky)}
+.fg{background-image:url("fg-phone.webp");pointer-events:none}
+@media (min-aspect-ratio:4/5){.bg,.fg{background-position:center 30%}.bg{background-image:url("bg-wide.jpg")}.fg{background-image:url("fg-wide.webp")}}
 .shade{position:fixed;inset:auto 0 0;height:62%;background:linear-gradient(to top,rgba(var(--night),.96) 0%,rgba(var(--night),.84) 34%,rgba(var(--night),.45) 64%,rgba(var(--night),0) 100%)}
 main{position:fixed;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;
   padding:0 max(16px,env(safe-area-inset-right,0px)) calc(48px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
@@ -39,7 +42,7 @@ h1{font-size:17px;font-weight:700;letter-spacing:.12em;text-indent:.12em;color:v
 .unit b{display:block;font-size:min(15.5vw,112px);font-weight:900;line-height:.92;letter-spacing:-.04em;font-variant-numeric:tabular-nums;padding:0 .02em}
 .unit span{font-size:12px;font-weight:700;letter-spacing:.16em;text-indent:.16em;color:var(--warm-2)}
 .colon{font-size:min(10vw,72px);font-weight:300;line-height:1.2;color:var(--warm-2);opacity:.75}
-.logo{position:fixed;left:50%;top:calc(22px + env(safe-area-inset-top,0px));width:min(44vw,280px);transform:translateX(-50%);
+.logo{position:fixed;left:50%;top:calc(26px + env(safe-area-inset-top,0px));width:min(60vw,360px);transform:translateX(-50%);
   filter:drop-shadow(0 6px 22px rgba(40,10,70,.4))}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .done{font-size:min(16vw,104px);font-weight:900;letter-spacing:-.03em;line-height:1}
@@ -48,12 +51,14 @@ h1{font-size:17px;font-weight:700;letter-spacing:.12em;text-indent:.12em;color:v
 @keyframes tick{from{opacity:.25;transform:translateY(-10%)}}
 @media (prefers-reduced-motion:reduce){.tick{animation:none}}
 /* wide screens: the logo moves to the upper left, over the city, so it stays off the characters */
-@media (min-aspect-ratio:4/5){.logo{left:max(5vw,24px);transform:none;width:min(22vw,320px);top:calc(5vh + env(safe-area-inset-top,0px))}}
+@media (min-aspect-ratio:4/5){.logo{left:max(5vw,24px);transform:none;width:min(26vw,380px);top:calc(5vh + env(safe-area-inset-top,0px))}}
 </style>
 </head>
 <body>
-<div class="bg" role="img" aria-label="GTA VI 공식 아트워크: 옥상 위의 제이슨과 루시아"></div><div class="shade"></div>
+<div class="bg" role="img" aria-label="GTA VI 공식 아트워크: 옥상 위의 제이슨과 루시아"></div>
 <img class="logo" src="logo-gta6.png" alt="Grand Theft Auto VI">
+<div class="fg" aria-hidden="true"></div>
+<div class="shade"></div>
 <main>
   <h1><span class="vh">GTA 6 </span><span id="sub">출시까지</span></h1>
   <div id="count" class="count">
