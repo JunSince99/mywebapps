@@ -37,19 +37,23 @@ h1{margin:0;font-size:20px;font-weight:800;letter-spacing:.01em;text-shadow:0 1p
 h1{font-size:17px;font-weight:700;letter-spacing:.12em;text-indent:.12em;color:var(--warm)}
 .count{display:flex;align-items:flex-start;justify-content:center;gap:min(1.6vw,10px)}
 .unit{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0}
-.sun{background:linear-gradient(180deg,var(--sun-1) 8%,var(--sun-2) 48%,var(--sun-3) 92%);-webkit-background-clip:text;background-clip:text;color:transparent;
-  filter:drop-shadow(0 2px 0 rgba(60,10,40,.4)) drop-shadow(0 8px 22px rgba(255,79,139,.28))}
-.unit b{display:block;font-size:min(15.5vw,112px);font-weight:900;line-height:.92;letter-spacing:-.04em;font-variant-numeric:tabular-nums;padding:0 .02em}
-.unit span{font-size:12px;font-weight:700;letter-spacing:.16em;text-indent:.16em;color:var(--warm-2)}
+/* gradient fill is on each glyph (so rolling digits keep it); the glow is on the whole number */
+.fill,.done{background:linear-gradient(180deg,var(--sun-1) 8%,var(--sun-2) 48%,var(--sun-3) 92%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sun{filter:drop-shadow(0 2px 0 rgba(60,10,40,.4)) drop-shadow(0 8px 22px rgba(255,79,139,.28))}
+/* each digit is a slot; on change the new digit rolls down from above while the old one rolls out below */
+.slot{display:inline-block;height:.92em;overflow:hidden;vertical-align:top}
+.reel{display:flex;flex-direction:column}
+.reel i{display:block;height:.92em;font-style:normal}
+.reel.go{transition:transform .5s cubic-bezier(.22,.9,.25,1.05)}
+.unit b{display:flex;font-size:min(15.5vw,112px);font-weight:900;line-height:.92;letter-spacing:-.04em;font-variant-numeric:tabular-nums;padding:0 .02em}
+.unit>span{font-size:12px;font-weight:700;letter-spacing:.16em;text-indent:.16em;color:var(--warm-2)}
 .colon{font-size:min(10vw,72px);font-weight:300;line-height:1.2;color:var(--warm-2);opacity:.75}
 .logo{position:fixed;left:50%;top:calc(26px + env(safe-area-inset-top,0px));width:min(60vw,360px);transform:translateX(-50%);
   filter:drop-shadow(0 6px 22px rgba(40,10,70,.4))}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .done{font-size:min(16vw,104px);font-weight:900;letter-spacing:-.03em;line-height:1}
 .credit{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));font-size:10px;color:rgba(255,255,255,.42)}
-.tick{animation:tick .5s cubic-bezier(.2,.8,.2,1)}
-@keyframes tick{from{opacity:.25;transform:translateY(-10%)}}
-@media (prefers-reduced-motion:reduce){.tick{animation:none}}
+@media (prefers-reduced-motion:reduce){.reel.go{transition:none}}
 /* wide screens: the logo moves to the upper left, over the city, so it stays off the characters */
 @media (min-aspect-ratio:4/5){.logo{left:max(5vw,24px);transform:none;width:min(26vw,380px);top:calc(5vh + env(safe-area-inset-top,0px))}}
 </style>
@@ -75,7 +79,20 @@ const LAUNCH=Date.UTC(2026,10,18,15,0,0);
 const $=id=>document.getElementById(id);
 const p2=n=>String(n).padStart(2,'0');
 const prev={};
-function put(id,v){const el=$(id);if(prev[id]===v)return;prev[id]=v;el.textContent=v;el.classList.remove('tick');void el.offsetWidth;el.classList.add('tick')}
+function put(id,v){
+  const el=$(id),old=prev[id];if(old===v)return;prev[id]=v;
+  if(old===undefined||old.length!==v.length){ /* first draw or width change: no animation */
+    el.innerHTML=[...v].map(c=>`<span class="slot"><span class="reel"><i class="fill">${c}</i></span></span>`).join('');return;
+  }
+  [...v].forEach((c,i)=>{
+    if(c===old[i])return;
+    const slot=el.children[i],reel=document.createElement('span');
+    reel.className='reel';reel.innerHTML=`<i class="fill">${c}</i><i class="fill">${old[i]}</i>`;
+    reel.style.transform='translateY(-50%)';slot.replaceChildren(reel);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{reel.classList.add('go');reel.style.transform='translateY(0)'}));
+    reel.addEventListener('transitionend',()=>{reel.classList.remove('go');reel.style.transform='';reel.innerHTML=`<i class="fill">${c}</i>`},{once:true});
+  });
+}
 function frame(){
   const left=LAUNCH-Date.now();
   if(left<=0){
