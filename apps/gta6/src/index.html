@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>GTA 6 카운트다운</title>
+<meta name="theme-color" content="#100b1c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GTA 6">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+/* Layout: one screen. A dusk sky with a low sun, the days as one huge number, hours:minutes:seconds under it. */
+:root{
+  --night:#100b1c; --dusk:#2a1238; --sun:#ff6a5a; --sun-2:#ffb35a; --ink:#fff6f2; --ink-2:rgba(255,246,242,.62); --ink-3:rgba(255,246,242,.38);
+  --digits:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--night);color:var(--ink);font-family:var(--digits);-webkit-font-smoothing:antialiased;overflow:hidden;-webkit-user-select:none;user-select:none}
+.sky{position:fixed;inset:0;background:linear-gradient(to bottom,var(--night) 0%,var(--night) 38%,var(--dusk) 78%,#3d1640 100%)}
+.sun{position:fixed;left:50%;bottom:-36vmin;width:82vmin;height:82vmin;transform:translateX(-50%);border-radius:50%;
+  background:linear-gradient(to bottom,var(--sun-2),var(--sun) 55%);opacity:.9;
+  -webkit-mask:repeating-linear-gradient(to bottom,#000 0 7%,transparent 7% 8.4%);mask:repeating-linear-gradient(to bottom,#000 0 7%,transparent 7% 8.4%)}
+.glow{position:fixed;left:50%;bottom:-20vmin;width:150vmin;height:80vmin;transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(255,106,90,.35),transparent)}
+main{position:relative;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4vh;
+  padding:calc(24px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(54vmin + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));text-align:center}
+.tag{font-size:13px;font-weight:700;letter-spacing:.32em;color:var(--ink-2);text-indent:.32em}
+.days{display:flex;align-items:baseline;justify-content:center;gap:.08em;line-height:.8}
+.days b{font-size:min(46vw,300px);font-weight:900;letter-spacing:-.06em;font-variant-numeric:tabular-nums}
+.days span{font-size:min(9vw,52px);font-weight:800;color:var(--ink-2)}
+.clock{display:flex;justify-content:center;gap:min(4vw,22px)}
+.unit{display:flex;flex-direction:column;align-items:center;gap:8px}
+.unit b{font-size:min(17vw,104px);font-weight:800;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.unit span{font-size:11px;font-weight:700;letter-spacing:.2em;color:var(--ink-3);text-indent:.2em}
+.sep{font-size:min(17vw,104px);font-weight:300;line-height:1;color:var(--ink-3);margin-top:-.04em}
+.when{font-size:13px;color:var(--ink-2);letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.done{font-size:min(15vw,88px);font-weight:900;letter-spacing:-.03em;line-height:1}
+.tick{animation:tick .45s cubic-bezier(.2,.8,.2,1)}
+@keyframes tick{from{opacity:.35;transform:translateY(-6%)}}
+@media (prefers-reduced-motion:reduce){.tick{animation:none}}
+</style>
+</head>
+<body>
+<div class="sky"></div><div class="glow"></div><div class="sun"></div>
+<main>
+  <div class="tag">GTA VI</div>
+  <div id="count">
+    <div class="days" id="daysRow"><b id="d">0</b><span>일</span></div>
+    <div class="clock" style="margin-top:3vh">
+      <div class="unit"><b id="h">00</b><span>시간</span></div><div class="sep">:</div>
+      <div class="unit"><b id="m">00</b><span>분</span></div><div class="sep">:</div>
+      <div class="unit"><b id="s">00</b><span>초</span></div>
+    </div>
+  </div>
+  <div class="when" id="when">11월 19일 (목) 00:00 · 한국 시간</div>
+</main>
+<script>
+// Rockstar: unlocks at midnight local time on 19 Nov 2026 in every region. Korea (UTC+9) → 2026-11-19 00:00 KST.
+const LAUNCH=Date.UTC(2026,10,18,15,0,0);
+const $=id=>document.getElementById(id);
+const p2=n=>String(n).padStart(2,'0');
+const prev={};
+function put(id,v){const el=$(id);if(prev[id]===v)return;prev[id]=v;el.textContent=v;el.classList.remove('tick');void el.offsetWidth;el.classList.add('tick')}
+function frame(){
+  const left=LAUNCH-Date.now();
+  if(left<=0){
+    $('count').innerHTML='<div class="done">지금 플레이</div>';
+    const since=Math.floor(-left/60000);
+    $('when').textContent=since<60?`출시 ${since}분 지남`:since<1440?`출시 ${Math.floor(since/60)}시간 지남`:`출시 ${Math.floor(since/1440)}일 지남`;
+    setTimeout(frame,30000);return;
+  }
+  const t=Math.floor(left/1000),d=Math.floor(t/86400),h=Math.floor(t%86400/3600),m=Math.floor(t%3600/60),s=t%60;
+  $('daysRow').hidden=d===0;
+  put('d',String(d));put('h',p2(h));put('m',p2(m));put('s',p2(s));
+  setTimeout(frame,1000-Date.now()%1000+5);
+}
+frame();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){for(const k in prev)delete prev[k];}});
+</script>
+</body>
+</html>

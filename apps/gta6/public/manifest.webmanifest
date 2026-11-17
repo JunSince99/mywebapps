@@ -1,0 +1,10 @@
+{
+  "name": "GTA 6 카운트다운",
+  "short_name": "GTA 6",
+  "description": "한국 시간 11월 19일 00:00 출시까지",
+  "lang": "ko",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#100b1c",
+  "theme_color": "#100b1c"
+}
