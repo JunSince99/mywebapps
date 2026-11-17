@@ -10,10 +10,12 @@
 <meta name="apple-mobile-web-app-title" content="GTA 6">
 <link rel="manifest" href="manifest.webmanifest">
 <style>
-/* Layout: Rockstar's official phone wallpaper fills the screen with the two leads' faces in the upper half;
-   the countdown sits at the bottom over the rooftop, on a dark fade. One row of four units keeps it compact. */
+/* Layout: Rockstar's official phone wallpaper fills the screen with the two leads' faces in the upper half.
+   The countdown sits at the bottom on a dusk fade: sunset-colored digits (gold → orange → pink, the game's own palette),
+   thin colons between units, warm labels, and the launch time in a small pill. */
 :root{
-  --ink:#ffffff; --ink-2:rgba(255,255,255,.78); --ink-3:rgba(255,255,255,.6); --sky:#7b6aa8;
+  --ink:#ffffff; --warm:#ffd1a3; --warm-2:rgba(255,209,163,.62); --sky:#7b6aa8; --night:14,6,30;
+  --sun-1:#ffe08a; --sun-2:#ff9a5a; --sun-3:#ff4f8b;
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue","Apple SD Gothic Neo",system-ui,sans-serif;
   color-scheme:dark;
 }
@@ -22,21 +24,28 @@
 html,body{margin:0;height:100%;background:var(--sky);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow:hidden;-webkit-user-select:none;user-select:none}
 .bg{position:fixed;inset:0;background:var(--sky) url("bg-phone.jpg") center 74%/cover no-repeat}
 @media (min-aspect-ratio:4/5){.bg{background-image:url("bg-wide.jpg");background-position:center 30%}}
-.shade{position:fixed;inset:auto 0 0;height:55%;background:linear-gradient(to top,rgba(18,10,36,.92) 0%,rgba(18,10,36,.7) 45%,rgba(18,10,36,0) 100%)}
-main{position:fixed;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;
-  padding:0 max(16px,env(safe-area-inset-right,0px)) calc(40px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
-  text-shadow:0 2px 18px rgba(30,14,60,.45)}
-h1{margin:0;font-size:19px;font-weight:800;letter-spacing:.01em}
-h1 span{font-weight:600;color:var(--ink-2);margin-left:4px}
-.count{display:flex;justify-content:center;gap:min(3.2vw,22px)}
-.unit{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
-.unit b{font-size:min(17vw,104px);font-weight:800;line-height:.95;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
-.unit span{font-size:12px;font-weight:700;letter-spacing:.14em;text-indent:.14em;color:var(--ink-2)}
-.when{font-size:12.5px;font-weight:600;color:var(--ink-2);font-variant-numeric:tabular-nums}
-.done{font-size:min(15vw,96px);font-weight:900;letter-spacing:-.03em;line-height:1}
-.credit{position:fixed;right:max(10px,env(safe-area-inset-right,0px));bottom:calc(8px + env(safe-area-inset-bottom,0px));font-size:10px;color:rgba(255,255,255,.55)}
-.tick{animation:tick .45s cubic-bezier(.2,.8,.2,1)}
-@keyframes tick{from{opacity:.35;transform:translateY(-8%)}}
+.shade{position:fixed;inset:auto 0 0;height:62%;background:linear-gradient(to top,rgba(var(--night),.96) 0%,rgba(var(--night),.84) 34%,rgba(var(--night),.45) 64%,rgba(var(--night),0) 100%)}
+main{position:fixed;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;
+  padding:0 max(16px,env(safe-area-inset-right,0px)) calc(42px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+/* a soft sunset glow behind the numbers ties them to the sky above */
+main::before{content:"";position:absolute;left:50%;bottom:22%;width:120%;height:70%;transform:translateX(-50%);z-index:-1;
+  background:radial-gradient(closest-side,rgba(255,96,128,.2),rgba(255,96,128,0));pointer-events:none}
+h1{margin:0;font-size:20px;font-weight:800;letter-spacing:.01em;text-shadow:0 1px 12px rgba(var(--night),.8)}
+h1 span{margin-left:6px;font-weight:600;color:var(--warm)}
+.count{display:flex;align-items:flex-start;justify-content:center;gap:min(1.6vw,10px)}
+.unit{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0}
+.sun{background:linear-gradient(180deg,var(--sun-1) 8%,var(--sun-2) 48%,var(--sun-3) 92%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 2px 0 rgba(60,10,40,.4)) drop-shadow(0 8px 22px rgba(255,79,139,.28))}
+.unit b{display:block;font-size:min(15.5vw,112px);font-weight:900;line-height:.92;letter-spacing:-.04em;font-variant-numeric:tabular-nums;padding:0 .02em}
+.unit span{font-size:12px;font-weight:700;letter-spacing:.16em;text-indent:.16em;color:var(--warm-2)}
+.colon{font-size:min(10vw,72px);font-weight:300;line-height:1.2;color:var(--warm-2);opacity:.75}
+.when{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);
+  font-size:12.5px;font-weight:600;color:rgba(255,255,255,.82);font-variant-numeric:tabular-nums}
+.when i{width:6px;height:6px;border-radius:50%;background:var(--sun-2);box-shadow:0 0 8px var(--sun-3)}
+.done{font-size:min(16vw,104px);font-weight:900;letter-spacing:-.03em;line-height:1}
+.credit{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));font-size:10px;color:rgba(255,255,255,.42)}
+.tick{animation:tick .5s cubic-bezier(.2,.8,.2,1)}
+@keyframes tick{from{opacity:.25;transform:translateY(-10%)}}
 @media (prefers-reduced-motion:reduce){.tick{animation:none}}
 </style>
 </head>
@@ -45,12 +54,12 @@ h1 span{font-weight:600;color:var(--ink-2);margin-left:4px}
 <main>
   <h1>GTA 6<span id="sub">출시까지</span></h1>
   <div id="count" class="count">
-    <div class="unit" id="dUnit"><b id="d">0</b><span>일</span></div>
-    <div class="unit"><b id="h">00</b><span>시간</span></div>
-    <div class="unit"><b id="m">00</b><span>분</span></div>
-    <div class="unit"><b id="s">00</b><span>초</span></div>
+    <div class="unit" id="dUnit"><b class="sun" id="d">0</b><span>일</span></div><span class="colon" id="dColon">:</span>
+    <div class="unit"><b class="sun" id="h">00</b><span>시간</span></div><span class="colon">:</span>
+    <div class="unit"><b class="sun" id="m">00</b><span>분</span></div><span class="colon">:</span>
+    <div class="unit"><b class="sun" id="s">00</b><span>초</span></div>
   </div>
-  <div class="when" id="when">11월 19일 (목) 00:00 · 한국 시간</div>
+  <div class="when"><i></i><span id="when">11월 19일 (목) 00:00 · 한국 시간</span></div>
 </main>
 <div class="credit">Artwork © Rockstar Games</div>
 <script>
@@ -63,13 +72,13 @@ function put(id,v){const el=$(id);if(prev[id]===v)return;prev[id]=v;el.textConte
 function frame(){
   const left=LAUNCH-Date.now();
   if(left<=0){
-    $('count').innerHTML='<div class="done">지금 플레이</div>';$('sub').textContent='출시됐어요';
+    $('count').innerHTML='<div class="done sun">지금 플레이</div>';$('sub').textContent='출시됐어요';
     const since=Math.floor(-left/60000);
     $('when').textContent=since<60?`출시 ${since}분 지남`:since<1440?`출시 ${Math.floor(since/60)}시간 지남`:`출시 ${Math.floor(since/1440)}일 지남`;
     setTimeout(frame,30000);return;
   }
   const t=Math.floor(left/1000),d=Math.floor(t/86400),h=Math.floor(t%86400/3600),m=Math.floor(t%3600/60),s=t%60;
-  $('dUnit').hidden=d===0;
+  $('dUnit').hidden=$('dColon').hidden=d===0;
   put('d',String(d));put('h',p2(h));put('m',p2(m));put('s',p2(s));
   setTimeout(frame,1000-Date.now()%1000+5);
 }
