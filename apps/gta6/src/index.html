@@ -21,7 +21,8 @@
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-html,body{margin:0;height:100%;background:rgb(var(--night));color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow:hidden;-webkit-user-select:none;user-select:none}
+html{background:rgb(var(--night))}
+html,body{margin:0;height:100%;color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow:hidden;-webkit-user-select:none;user-select:none}
 /* layers, back to front: artwork, logo, the two characters cut out of the same artwork (so the logo sits behind them), fade, countdown */
 /* layers overhang the bottom: iOS home-screen apps sometimes lay out a viewport shorter than the screen, which left a bare strip */
 .bg,.fg{position:fixed;left:0;right:0;top:0;bottom:-160px;background:url("bg-phone.jpg") center 74%/cover no-repeat}
@@ -58,6 +59,14 @@ h1{font-size:17px;font-weight:700;letter-spacing:.12em;text-indent:.12em;color:v
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .done{font-size:min(16vw,104px);font-weight:900;letter-spacing:-.03em;line-height:1}
 .credit{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));font-size:10px;color:rgba(255,255,255,.42)}
+/* portrait phones: the whole scene (artwork, logo, characters, fade) is one image at iPhone 16 Pro resolution (1206×2622),
+   painted as the page canvas background. The canvas covers the entire screen, including the strip iOS home-screen apps
+   leave below the layout viewport, so nothing can show bare there. */
+@media (max-aspect-ratio:4/5){
+  html{background:rgb(var(--night)) url("scene-phone.jpg") center top/100% auto no-repeat}
+  body{background:transparent}
+  .bg,.fg,.shade,.logo{display:none}
+}
 @media (prefers-reduced-motion:reduce){.reel.go{transition:none}}
 /* wide screens: the logo moves to the upper left, over the city, so it stays off the characters */
 @media (min-aspect-ratio:4/5){.logo{left:max(5vw,24px);transform:none;width:min(26vw,380px);top:calc(5vh + env(safe-area-inset-top,0px))}}
