@@ -22,14 +22,18 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{background:rgb(var(--night))}
-html,body{margin:0;height:100%;color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow:hidden;-webkit-user-select:none;user-select:none}
+/* everything is ordinary page content (absolute inside body), not fixed to the viewport. In an iOS home-screen app the
+   viewport is laid out shorter than the screen (812 of 874 on iPhone 16 Pro), so the body is made as tall as the screen
+   itself (--H, set from screen.height by the script) and the page simply extends to the bottom edge. */
+html{margin:0;overscroll-behavior:none}
+body{margin:0;position:relative;height:var(--H,100dvh);overflow:hidden;color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none}
 /* layers, back to front: artwork, logo, the two characters cut out of the same artwork (so the logo sits behind them), fade, countdown */
-.bg,.fg{position:fixed;left:0;right:0;top:0;bottom:0;background:url("bg-phone.jpg") center 74%/cover no-repeat}
+.bg,.fg{position:absolute;left:0;right:0;top:0;bottom:0;background:url("bg-phone.jpg") center 74%/cover no-repeat}
 .bg{background-color:var(--sky)}
 .fg{background-image:url("fg-phone.webp");pointer-events:none}
 @media (min-aspect-ratio:4/5){.bg,.fg{background-position:center 30%}.bg{background-image:url("bg-wide.jpg")}.fg{background-image:url("fg-wide.webp")}}
-.shade{position:fixed;left:0;right:0;bottom:0;height:62%;background:linear-gradient(to top,rgba(var(--night),.96) 0%,rgba(var(--night),.84) 34%,rgba(var(--night),.45) 64%,rgba(var(--night),0) 100%)}
-main{position:fixed;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;
+.shade{position:absolute;left:0;right:0;bottom:0;height:62%;background:linear-gradient(to top,rgba(var(--night),.96) 0%,rgba(var(--night),.84) 34%,rgba(var(--night),.45) 64%,rgba(var(--night),0) 100%)}
+main{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;
   padding:0 max(16px,env(safe-area-inset-right,0px)) calc(48px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 /* a soft sunset glow behind the numbers ties them to the sky above */
 main::before{content:"";position:absolute;left:50%;bottom:22%;width:120%;height:70%;transform:translateX(-50%);z-index:-1;
@@ -53,19 +57,11 @@ h1{font-size:17px;font-weight:700;letter-spacing:.12em;text-indent:.12em;color:v
 .unit b{display:flex;font-size:min(15.5vw,112px);font-weight:900;line-height:.92;letter-spacing:-.04em;font-variant-numeric:tabular-nums;padding:0 .02em}
 .unit>span{font-size:12px;font-weight:700;letter-spacing:.16em;text-indent:.16em;color:var(--warm-2)}
 .colon{font-size:min(10vw,72px);font-weight:300;line-height:1.2;color:var(--warm-2);opacity:.75}
-.logo{position:fixed;left:50%;top:calc(26px + env(safe-area-inset-top,0px));width:min(60vw,360px);transform:translateX(-50%);
+.logo{position:absolute;left:50%;top:calc(26px + env(safe-area-inset-top,0px));width:min(60vw,360px);transform:translateX(-50%);
   filter:drop-shadow(0 6px 22px rgba(40,10,70,.4))}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .done{font-size:min(16vw,104px);font-weight:900;letter-spacing:-.03em;line-height:1}
-.credit{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));font-size:10px;color:rgba(255,255,255,.42)}
-/* portrait: the artwork (with logo, characters and fade composed in) is the page's own background. iOS home-screen apps
-   lay the page out shorter than the screen, but the page background always paints the whole screen, so the artwork
-   reaches every edge. The image is taller than any phone screen, so sized to the width it always fills the height. */
-@media (max-aspect-ratio:4/5){
-  html{background:rgb(var(--night)) url("scene-phone.jpg") center top/100% auto no-repeat}
-  body{background:transparent}
-  .bg,.fg,.shade,.logo{display:none}
-}
+.credit{position:absolute;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));font-size:10px;color:rgba(255,255,255,.42)}
 @media (prefers-reduced-motion:reduce){.reel.go{transition:none}}
 /* wide screens: the logo moves to the upper left, over the city, so it stays off the characters */
 @media (min-aspect-ratio:4/5){.logo{left:max(5vw,24px);transform:none;width:min(26vw,380px);top:calc(5vh + env(safe-area-inset-top,0px))}}
@@ -118,6 +114,11 @@ function frame(){
   setTimeout(frame,1000-Date.now()%1000+5);
 }
 frame();
+// home-screen app, portrait: make the page exactly as tall as the screen
+function fit(){const r=document.documentElement.style;
+  if(navigator.standalone&&screen.height>screen.width&&innerHeight>innerWidth)r.setProperty('--H',screen.height+'px');else r.removeProperty('--H')}
+fit();addEventListener('resize',fit);
+addEventListener('touchmove',e=>e.preventDefault(),{passive:false}); /* the page is a poster: no scrolling or rubber-banding */
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){for(const k in prev)delete prev[k];}});
 </script>
 </body>
