@@ -27,6 +27,8 @@ html,body{margin:0;height:100%;color:var(--ink);font-family:var(--font);-webkit-
 /* --gap: in an iOS home-screen app with a translucent status bar the page is laid out from the top of the screen but only
    (screen height − status bar) tall (measured on iPhone 16 Pro: 812 of 874). Everything bottom-anchored extends by that gap. */
 :root{--gap:0px}
+/* the gap equals the top safe-area inset (the status bar), so CSS alone covers it from the first paint */
+@media (display-mode:standalone) and (orientation:portrait){:root{--gap:env(safe-area-inset-top,0px)}}
 .bg,.fg{position:fixed;left:0;right:0;top:0;bottom:calc(-1*var(--gap));background:url("bg-phone.jpg") center 74%/cover no-repeat}
 .bg{background-color:var(--sky)}
 .fg{background-image:url("fg-phone.webp");pointer-events:none}
@@ -113,10 +115,13 @@ function frame(){
   setTimeout(frame,1000-Date.now()%1000+5);
 }
 frame();
-// measure the gap between the screen and the laid-out page in a home-screen app (0 in Safari)
-function gap(){const g=navigator.standalone?Math.max(0,screen.height-innerHeight):0;
-  document.documentElement.style.setProperty('--gap',(innerWidth<innerHeight&&screen.width<screen.height?g:0)+'px')}
-gap();addEventListener('resize',gap);
+// once the page has settled, replace the CSS estimate with the measured gap (screen height − laid-out height) in home-screen portrait.
+// innerHeight can still be changing right at startup, so measure again after load and on every viewport change.
+function gap(){if(!navigator.standalone||innerWidth>innerHeight)return document.documentElement.style.removeProperty('--gap');
+  const g=Math.max(0,screen.height-Math.max(innerHeight,document.documentElement.clientHeight));
+  if(g)document.documentElement.style.setProperty('--gap',g+'px');else document.documentElement.style.removeProperty('--gap')}
+addEventListener('load',()=>{gap();setTimeout(gap,300);setTimeout(gap,1000)});addEventListener('resize',gap);
+visualViewport&&visualViewport.addEventListener('resize',gap);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){for(const k in prev)delete prev[k];}});
 </script>
 </body>
