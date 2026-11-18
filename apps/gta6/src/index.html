@@ -128,7 +128,8 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden){for(const
  const show=()=>{const vv=visualViewport;box.textContent=[`standalone ${navigator.standalone}`,`screen ${screen.width}x${screen.height}`,`inner ${innerWidth}x${innerHeight}`,
   `html client ${document.documentElement.clientHeight}`,`vv ${vv&&vv.height} top ${vv&&vv.offsetTop}`,`inset top ${probe.offsetHeight} bottom ${pb.offsetHeight}`,
   `main bottom ${Math.round(document.querySelector('main').getBoundingClientRect().bottom)}`].join('\n');box.style.display='block'};
- c.addEventListener('click',()=>{clearTimeout(t);t=setTimeout(()=>n=0,800);if(++n>=3){n=0;box.style.display==='block'?box.style.display='none':show()}});
+ const btn=document.createElement('button');btn.textContent='측정';btn.style.cssText='position:fixed;left:12px;top:45%;z-index:10;padding:10px 16px;border:0;border-radius:10px;background:#0f0;color:#000;font:700 15px system-ui;touch-action:manipulation';document.body.append(btn);
+ btn.addEventListener('click',()=>{box.style.display==='block'?box.style.display='none':show()});box.style.top='calc(45% + 52px)';
 })();
 </script>
 </body>
