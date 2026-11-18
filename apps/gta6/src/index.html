@@ -120,6 +120,16 @@ function frame(){
 }
 frame();
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){for(const k in prev)delete prev[k];}});
+// diagnostics: tap the credit three times to show the viewport numbers iOS reports (to fix the bottom strip properly)
+(()=>{let n=0,t;const c=document.querySelector('.credit');c.style.pointerEvents='auto';
+ const probe=document.createElement('div');probe.style.cssText='position:fixed;top:0;height:env(safe-area-inset-top);width:0';document.body.append(probe);
+ const pb=document.createElement('div');pb.style.cssText='position:fixed;bottom:0;height:env(safe-area-inset-bottom);width:0';document.body.append(pb);
+ const box=document.createElement('pre');box.style.cssText='position:fixed;left:8px;top:40%;z-index:9;margin:0;padding:10px;background:#000c;color:#0f0;font:12px/1.5 ui-monospace,monospace;border-radius:8px;display:none';document.body.append(box);
+ const show=()=>{const vv=visualViewport;box.textContent=[`standalone ${navigator.standalone}`,`screen ${screen.width}x${screen.height}`,`inner ${innerWidth}x${innerHeight}`,
+  `html client ${document.documentElement.clientHeight}`,`vv ${vv&&vv.height} top ${vv&&vv.offsetTop}`,`inset top ${probe.offsetHeight} bottom ${pb.offsetHeight}`,
+  `main bottom ${Math.round(document.querySelector('main').getBoundingClientRect().bottom)}`].join('\n');box.style.display='block'};
+ c.addEventListener('click',()=>{clearTimeout(t);t=setTimeout(()=>n=0,800);if(++n>=3){n=0;box.style.display==='block'?box.style.display='none':show()}});
+})();
 </script>
 </body>
 </html>
