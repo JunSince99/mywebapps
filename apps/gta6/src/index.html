@@ -24,17 +24,12 @@
 html{background:rgb(var(--night))}
 html,body{margin:0;height:100%;color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow:hidden;-webkit-user-select:none;user-select:none}
 /* layers, back to front: artwork, logo, the two characters cut out of the same artwork (so the logo sits behind them), fade, countdown */
-/* --gap: in an iOS home-screen app with a translucent status bar the page is laid out from the top of the screen but only
-   (screen height − status bar) tall (measured on iPhone 16 Pro: 812 of 874). Everything bottom-anchored extends by that gap. */
-:root{--gap:0px}
-/* the gap equals the top safe-area inset (the status bar), so CSS alone covers it from the first paint */
-@media (display-mode:standalone) and (orientation:portrait){:root{--gap:env(safe-area-inset-top,0px)}}
-.bg,.fg{position:fixed;left:0;right:0;top:0;bottom:calc(-1*var(--gap));background:url("bg-phone.jpg") center 74%/cover no-repeat}
+.bg,.fg{position:fixed;left:0;right:0;top:0;bottom:0;background:url("bg-phone.jpg") center 74%/cover no-repeat}
 .bg{background-color:var(--sky)}
 .fg{background-image:url("fg-phone.webp");pointer-events:none}
 @media (min-aspect-ratio:4/5){.bg,.fg{background-position:center 30%}.bg{background-image:url("bg-wide.jpg")}.fg{background-image:url("fg-wide.webp")}}
-.shade{position:fixed;left:0;right:0;bottom:calc(-1*var(--gap));height:calc(62% + var(--gap));background:linear-gradient(to top,rgba(var(--night),.96) 0%,rgba(var(--night),.84) 34%,rgba(var(--night),.45) 64%,rgba(var(--night),0) 100%)}
-main{position:fixed;left:0;right:0;bottom:calc(-1*var(--gap));display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;
+.shade{position:fixed;left:0;right:0;bottom:0;height:62%;background:linear-gradient(to top,rgba(var(--night),.96) 0%,rgba(var(--night),.84) 34%,rgba(var(--night),.45) 64%,rgba(var(--night),0) 100%)}
+main{position:fixed;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;
   padding:0 max(16px,env(safe-area-inset-right,0px)) calc(48px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 /* a soft sunset glow behind the numbers ties them to the sky above */
 main::before{content:"";position:absolute;left:50%;bottom:22%;width:120%;height:70%;transform:translateX(-50%);z-index:-1;
@@ -62,7 +57,15 @@ h1{font-size:17px;font-weight:700;letter-spacing:.12em;text-indent:.12em;color:v
   filter:drop-shadow(0 6px 22px rgba(40,10,70,.4))}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .done{font-size:min(16vw,104px);font-weight:900;letter-spacing:-.03em;line-height:1}
-.credit{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px) - var(--gap));font-size:10px;color:rgba(255,255,255,.42)}
+.credit{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));font-size:10px;color:rgba(255,255,255,.42)}
+/* portrait: the artwork (with logo, characters and fade composed in) is the page's own background. iOS home-screen apps
+   lay the page out shorter than the screen, but the page background always paints the whole screen, so the artwork
+   reaches every edge. The image is taller than any phone screen, so sized to the width it always fills the height. */
+@media (max-aspect-ratio:4/5){
+  html{background:rgb(var(--night)) url("scene-phone.jpg") center top/100% auto no-repeat}
+  body{background:transparent}
+  .bg,.fg,.shade,.logo{display:none}
+}
 @media (prefers-reduced-motion:reduce){.reel.go{transition:none}}
 /* wide screens: the logo moves to the upper left, over the city, so it stays off the characters */
 @media (min-aspect-ratio:4/5){.logo{left:max(5vw,24px);transform:none;width:min(26vw,380px);top:calc(5vh + env(safe-area-inset-top,0px))}}
@@ -115,13 +118,6 @@ function frame(){
   setTimeout(frame,1000-Date.now()%1000+5);
 }
 frame();
-// once the page has settled, replace the CSS estimate with the measured gap (screen height − laid-out height) in home-screen portrait.
-// innerHeight can still be changing right at startup, so measure again after load and on every viewport change.
-function gap(){if(!navigator.standalone||innerWidth>innerHeight)return document.documentElement.style.removeProperty('--gap');
-  const g=Math.max(0,screen.height-Math.max(innerHeight,document.documentElement.clientHeight));
-  if(g)document.documentElement.style.setProperty('--gap',g+'px');else document.documentElement.style.removeProperty('--gap')}
-addEventListener('load',()=>{gap();setTimeout(gap,300);setTimeout(gap,1000)});addEventListener('resize',gap);
-visualViewport&&visualViewport.addEventListener('resize',gap);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){for(const k in prev)delete prev[k];}});
 </script>
 </body>
