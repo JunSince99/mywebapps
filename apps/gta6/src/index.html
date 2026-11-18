@@ -6,8 +6,7 @@
 <title>GTA 6 카운트다운</title>
 <meta name="theme-color" content="#0e061e">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<!-- Apple: "default" lays web content out below the status bar (black-translucent breaks bottom-anchored layouts in recent iOS) -->
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="GTA 6">
 <link rel="manifest" href="manifest.webmanifest">
 <style>
@@ -29,7 +28,7 @@ html,body{margin:0;height:100%;background:rgb(var(--night));color:var(--ink);fon
 .bg{background-color:var(--sky)}
 .fg{background-image:url("fg-phone.webp");pointer-events:none}
 @media (min-aspect-ratio:4/5){.bg,.fg{background-position:center 30%}.bg{background-image:url("bg-wide.jpg")}.fg{background-image:url("fg-wide.webp")}}
-.shade{position:fixed;left:0;right:0;bottom:-160px;height:calc(62% + 160px);background:linear-gradient(to top,rgba(var(--night),.96) 0%,rgba(var(--night),.84) 34%,rgba(var(--night),.45) 64%,rgba(var(--night),0) 100%)}
+.shade{position:fixed;left:0;right:0;bottom:-160px;height:calc(62% + 160px);background:linear-gradient(to top,rgb(var(--night)) 0%,rgb(var(--night)) 160px,rgba(var(--night),.84) 38%,rgba(var(--night),.45) 64%,rgba(var(--night),0) 100%)}
 main{position:fixed;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;
   padding:0 max(16px,env(safe-area-inset-right,0px)) calc(48px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 /* a soft sunset glow behind the numbers ties them to the sky above */
