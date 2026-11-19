@@ -176,6 +176,14 @@ button.tile:active{transform:scale(.97)}
 .g-row svg{width:16px;height:16px;color:var(--ink-3)}
 button.g-row:active{opacity:.6}
 #gList{display:flex;flex-direction:column}
+/* commute: one tap records today's ride at the fixed fare; tapping again cancels it */
+.commute{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.cm{height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border-radius:14px;
+  background:var(--fill);font-size:15px;font-weight:700;transition:background .15s,color .15s}
+.cm small{font-size:12px;font-weight:500;color:var(--ink-2)}
+.cm.on{background:color-mix(in srgb,var(--c) 16%,var(--sheet));box-shadow:inset 0 0 0 1.5px var(--c);color:var(--c)}
+.cm.on small{color:var(--c);opacity:.8}
+.cm:active{opacity:.6}
 .g-empty{padding-block:28px;text-align:center;font-size:14px;color:var(--ink-2)}
 .sheet-note{margin:-6px 0 0;font-size:13.5px;line-height:1.5;color:var(--ink-2)}
 .date{display:flex;align-items:center;gap:2px;padding:2px;border-radius:10px;background:var(--fill)}
@@ -658,12 +666,24 @@ function finish(back){
   if(to)openGroup(to);else hideSheet();
 }
 function openGroup(id){G=id;renderGroup();showSheet(group)}
+/* commute rides: fixed fare, at most one 출근 and one 퇴근 per day, recorded for today */
+const FARE=1650, COMMUTE={in:'출근',out:'퇴근'};
+const commuteToday=k=>data.items.find(i=>i.commute===k&&i.date===TODAY);
+function commuteHTML(){
+  return `<div class="commute" style="--c:${CAT.transit.c}">`+Object.entries(COMMUTE).map(([k,name])=>{const on=!!commuteToday(k);
+    return `<button class="cm${on?' on':''}" data-cm="${k}" aria-pressed="${on}">${on?'오늘 기록됨 ✓':name}<small>${on?name+' · 다시 누르면 취소':won(FARE)+'원'}</small></button>`}).join('')+'</div>';
+}
+function toggleCommute(k){
+  const it=commuteToday(k);
+  if(it){data.items=data.items.filter(i=>i!==it);persist();render();renderGroup();toast(`오늘 ${COMMUTE[k]} 기록을 취소했어요`)}
+  else{data.items.push({id:uid(),amount:FARE,cat:'transit',memo:COMMUTE[k],date:TODAY,ts:Date.now(),commute:k});persist();render();renderGroup();toast(`오늘 ${COMMUTE[k]} ${won(FARE)}원 기록했어요`)}
+}
 function renderGroup(){
   const c=CAT[G], items=monthItems(vy,vm).filter(i=>i.cat===G).sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
   const gross=sum(items), refund=G==='transit'?refundOf(vy,vm):0;
   $('#gTitle').textContent=`${vm+1}월 ${c.name}`;
   $('#gSummary').innerHTML=`<div class="g-total">${won(gross-refund)}<small>원</small></div><div class="g-meta">${items.length}건${G==='transit'?' · K-패스 환급 반영':''}</div>`+
-    (G==='transit'?`<div class="g-rows" style="margin-top:14px"><div class="g-row"><span>사용 금액</span><span>${won(gross)}원</span></div>`+
+    (G==='transit'?commuteHTML():'')+(G==='transit'?`<div class="g-rows" style="margin-top:14px"><div class="g-row"><span>사용 금액</span><span>${won(gross)}원</span></div>`+
       `<button class="g-row" id="gRefund"><span>K-패스 환급</span><span>${refund?`<span class="good">−${won(refund)}원</span>`:'입력하기'}${CHEV}</span></button></div>`:'');
   $('#gList').innerHTML=items.length
     ?items.map(i=>{const d=parse(i.date);return rowHTML(i,`${d.getDate()}일 ${DOW[d.getDay()]}요일`)}).join('')
@@ -673,6 +693,7 @@ $('#tileSub').onclick=()=>openGroup('sub');
 $('#tileTransit').onclick=()=>openGroup('transit');
 $('#gAdd').onclick=()=>openExpense(null,G,G);
 group.addEventListener('click',e=>{
+  const cm=e.target.closest('[data-cm]');if(cm){toggleCommute(cm.dataset.cm);return}
   if(e.target.closest('#gRefund')){openRefund(G);return}
   const r=e.target.closest('.row'); if(!r)return;
   const it=data.items.find(i=>i.id===r.dataset.id); if(it)openExpense(it,G);
