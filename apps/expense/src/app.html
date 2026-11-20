@@ -70,12 +70,12 @@ button.tile:active{transform:scale(.97)}
 .tile-sub .on{color:var(--good)}
 .tile-sub svg{width:13px;height:13px}
 /* budget: remaining money and a per-day allowance under the month total */
-.budget{margin-top:14px}
+.bsec{margin-bottom:8px}
+.bsec .bar{margin-top:12px}
+.b-label{font-size:13px;color:var(--ink-2);margin-bottom:2px}
 .bar{height:6px;border-radius:3px;background:var(--fill);overflow:hidden}
 .bar i{display:block;height:100%;border-radius:3px;background:var(--good);transition:width .3s}
 .bar.over i{background:var(--bad)}
-.budget-txt{display:flex;justify-content:space-between;gap:8px;margin-top:7px;font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums}
-.budget-txt b{color:var(--ink);font-weight:600}
 /* compact 출근/퇴근 toggles in the transit tile's header (current month only) */
 #tileTransit{cursor:pointer;-webkit-tap-highlight-color:transparent}
 #tileTransit:active:not(:has(.mini:active)){transform:scale(.97)}
@@ -289,7 +289,6 @@ button.g-row:active{opacity:.6}
     <div class="hero-label" id="heroLabel"></div>
     <div class="hero-total" id="heroTotal"></div>
     <div class="hero-sub" id="heroSub"></div>
-    <div class="budget" id="budget" hidden></div>
     <div class="tiles">
       <button class="tile" id="tileSub"></button>
       <div class="tile" id="tileTransit" role="button" tabindex="0"></div>
@@ -377,7 +376,7 @@ button.g-row:active{opacity:.6}
   <div class="sgroup">
     <h3>한 달 예산</h3>
     <button class="srow" id="budgetBtn" style="border-bottom:0;padding-top:0">
-      <span><b id="budgetVal">정하지 않음</b><small>홈에서 남은 돈과 하루에 쓸 수 있는 금액을 보여줘요</small></span>
+      <span><b id="budgetVal">정하지 않음</b><small>통계에서 남은 돈과 하루에 써도 되는 금액을 보여줘요</small></span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
     </button>
   </div>
@@ -485,16 +484,27 @@ function render(){
   $('#heroTotal').innerHTML=`${won(sum(items)-refund)}<small>원</small>`;
   const cmp=compare(items,refund); $('#heroSub').innerHTML=cmp; $('#heroSub').hidden=!cmp;
   renderTiles(items,refund);
-  renderBudget(sum(items)-refund);
   if(tab==='list')renderList(items);else renderStats(items,refund);
 }
-function renderBudget(spent){
-  const el=$('#budget'), b=data.budget||0; el.hidden=!b; if(!b)return;
-  const left=b-spent, pct=Math.min(100,spent/b*100), over=left<0;
-  let right;
-  if(isCur()){const days=new Date(vy,vm+1,0).getDate()-today.getDate()+1;right=over?'':`하루 <b>${won(Math.floor(left/days/10)*10)}원</b>씩`}
-  else right=`예산 ${won(b)}원`;
-  el.innerHTML=`<div class="bar${over?' over':''}"><i style="width:${pct}%"></i></div><div class="budget-txt"><span>${over?`예산보다 <b class="bad">${won(-left)}원</b> 더 썼어요`:`남은 돈 <b>${won(left)}원</b>`}</span><span>${right}</span></div>`;
+/* budget (stats tab): how much is left and the daily average still allowed for the rest of the month */
+function budgetHTML(spent){
+  const b=data.budget||0; if(!b)return '';
+  const n=new Date(vy,vm+1,0).getDate(), left=b-spent, over=left<0, pct=Math.min(100,spent/b*100);
+  let big,label,rows;
+  if(isCur()){
+    const days=n-today.getDate()+1, per=over?0:Math.floor(left/days/10)*10;
+    label=over?'예산을 넘었어요':`남은 ${days}일 동안 하루에`;
+    big=over?`<span class="bad">+${won(-left)}</span><small>원</small>`:`${won(per)}<small>원</small>`;
+    rows=[['한 달 예산',`${won(b)}원`],[over?'초과':'남은 돈',`<span class="${over?'bad':''}">${won(Math.abs(left))}원</span>`],
+      ['처음 계획한 하루',`${won(Math.floor(b/n/10)*10)}원`]];
+  }else{
+    label=over?'예산을 넘었어요':'예산 안에서 썼어요';
+    big=`${won(Math.abs(left))}<small>원 ${over?'초과':'남음'}</small>`;
+    rows=[['한 달 예산',`${won(b)}원`],['하루 평균',`${won(Math.round(spent/n))}원`],['예산 기준 하루',`${won(Math.floor(b/n/10)*10)}원`]];
+  }
+  return `<div class="sec bsec"><h3>예산</h3><div class="b-label">${label}</div><div class="g-total">${big}</div>`+
+    `<div class="bar${over?' over':''}"><i style="width:${pct}%"></i></div>`+
+    `<div class="g-rows" style="margin-top:14px">${rows.map(r=>`<div class="g-row"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}</div></div>`;
 }
 function compare(items,refund){
   const py=vm===0?vy-1:vy, pm=vm===0?11:vm-1;
@@ -537,8 +547,8 @@ function renderList(all){
   }).join('');
 }
 function renderStats(items,refund){
-  const el=$('#stats');
-  if(!items.length){el.innerHTML=emptyHTML();return}
+  const el=$('#stats'), bud=budgetHTML(sum(items)-refund);
+  if(!items.length){el.innerHTML=bud+emptyHTML();return}
   const net=sum(items)-refund, n=new Date(vy,vm+1,0).getDate(), cur=isCur(), last=cur?today.getDate():n;
   const days=Array(n+1).fill(0); items.forEach(i=>{days[parse(i.date).getDate()]+=i.amount});
   let maxD=1; for(let d=2;d<=n;d++)if(days[d]>days[maxD])maxD=d;
@@ -559,7 +569,7 @@ function renderStats(items,refund){
     cols+=`<button class="col${v?' has':''}${d===statSel?' sel':''}${fut?' future':''}" data-d="${d}" aria-label="${vm+1}월 ${d}일 ${won(v)}원"${fut?' tabindex="-1"':''}><i style="height:${h}"></i></button>`;
   }
   const sd=new Date(vy,vm,statSel);
-  el.innerHTML=
+  el.innerHTML=bud+
     `<div class="cells">${cells.map(c=>`<div class="cell"><span class="cell-label">${c[0]}</span><span class="cell-val">${c[1]}</span><span class="cell-sub">${c[2]}</span></div>`).join('')}</div>`+
     `<div class="sec"><h3>카테고리</h3><div class="seg">${cats.filter(x=>x.v>0).map(x=>`<i style="--c:${x.c.c};flex:${x.v} 1 0"></i>`).join('')}</div>`+
     cats.map(x=>`<div class="crow"><span class="bub" style="--c:${x.c.c}">${icon(x.c.id)}</span><span><span class="crow-name">${x.c.name}</span><span class="crow-pct">${pct(x.v)}</span></span>`+
