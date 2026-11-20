@@ -726,15 +726,16 @@ function toggleCommute(k){
 }
 /* K-패스 refund estimate (2026, 수도권 · 일반형). Needs 15+ rides in the month. The larger of:
    기본형: a share of the fares (rate by group), and 모두의 카드: everything above the monthly base amount.
-   Sources: 국토교통부 모두의카드 안내, 정책브리핑 (기준금액 일반 6.2만/청년·2자녀·어르신 5.5만/3자녀·저소득 4.5만;
-   환급률 일반 20%, 청년·2자녀·어르신 30%, 3자녀 50%, 저소득 53.3%). The temporary 50% cut ran April–September 2026. */
-const KP={general:{name:'일반',rate:.2,base:62000},youth:{name:'청년',rate:.3,base:55000},senior:{name:'어르신·2자녀',rate:.3,base:55000},
-  multi:{name:'3자녀 이상',rate:.5,base:45000},low:{name:'저소득',rate:.533,base:45000}};
+   Source: 정책브리핑 (korea.kr 148960648, 148958934, 148962910). Base amounts 일반 6.2만, 청년·2자녀·어르신 5.5만,
+   3자녀·저소득 4.5만; April–September 2026 (반값 모두의 카드) 3만 / 2.5만 / 2.2만.
+   Rates 일반 20%, 청년·2자녀·어르신 30%, 3자녀 50%, 저소득 53.3% (+30%p for 시차시간 rides, not tracked here). */
+const KP={general:{name:'일반',rate:.2,base:62000,half:30000},youth:{name:'청년',rate:.3,base:55000,half:25000},
+  senior:{name:'어르신·2자녀',rate:.3,base:55000,half:25000},multi:{name:'3자녀 이상',rate:.5,base:45000,half:22000},
+  low:{name:'저소득',rate:.533,base:45000,half:22000}};
 const KP_MIN=15, KP_MAX=60, KP_KEYS=Object.keys(KP);
 function kpEstimate(items,y,m){
   const k=KP[data.kpass]||KP.general, rides=items.length, gross=sum(items);
-  const half=y===2026&&m>=3&&m<=8; /* April–September 2026: base amounts halved */
-  const base=half?k.base/2:k.base;
+  const base=y===2026&&m>=3&&m<=8?k.half:k.base; /* April–September 2026: reduced base */
   if(rides<KP_MIN)return {rides,amt:0,how:''};
   const counted=rides>KP_MAX?gross*KP_MAX/rides:gross;
   const rate=Math.floor(counted*k.rate/10)*10, flat=Math.max(0,gross-base);
