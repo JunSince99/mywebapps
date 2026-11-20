@@ -540,18 +540,21 @@ function compare(items,refund){
   return `${lbl} <b class="${d<0?'good':'bad'}">${won(Math.abs(d))}원</b> ${d<0?'덜':'더'} 썼어요`;
 }
 function renderTiles(items,refund){
-  const subs=items.filter(i=>i.cat==='sub'), tr=items.filter(i=>i.cat==='transit');
-  $('#tileSub').innerHTML=`<span class="tile-head"><span class="tile-ic" style="--c:${CAT.sub.c}">${icon('sub')}</span>구독</span>`+
+  const subs=items.filter(i=>GROUPS.sub.cats.includes(i.cat)), tr=items.filter(i=>i.cat==='transit');
+  $('#tileSub').innerHTML=`<span class="tile-head"><span class="tile-ic" style="--c:${CAT.sub.c}">${icon('sub')}</span>고정비</span>`+
     `<span class="tile-val">${won(sum(subs))}원</span><span class="tile-sub">${subs.length?subs.length+'건 보기':'기록 없음'}${CHEV}</span>`;
   $('#tileTransit').innerHTML=`<span class="tile-head"><span class="tile-ic" style="--c:${CAT.transit.c}">${icon('transit')}</span>교통${isCur()?`<span class="minis">${Object.entries(COMMUTE).map(([k,n])=>{const on=!!commuteToday(k);return `<button class="mini${on?' on':''}" data-cm="${k}" aria-pressed="${on}" aria-label="오늘 ${n} ${on?'기록됨, 누르면 취소':won(FARE)+'원 기록'}">${n}</button>`}).join('')}</span>`:''}</span>`+
     `<span class="tile-val">${won(sum(tr)-refund)}원</span>`+
     `<span class="tile-sub">${tr.length?tr.length+'건':'기록 없음'}${refund?` · <span class="on">환급 −${won(refund)}</span>`:''}${CHEV}</span>`;
-  $('#tileSub').setAttribute('aria-label',`구독 ${won(sum(subs))}원, ${subs.length}건 보기`);
+  $('#tileSub').setAttribute('aria-label',`고정비 ${won(sum(subs))}원, ${subs.length}건 보기`);
 }
 function emptyHTML(){
   return `<div class="empty"><div class="empty-title">${isCur()?'이번 달':vm+1+'월에는'} 아직 기록이 없어요</div><div class="empty-sub">아래 + 버튼으로 지출을 기록하거나<br>설정에서 백업을 가져올 수 있어요</div></div>`;
 }
-const GROUPED=new Set(['sub','transit']); /* shown only inside their own tile, not in the daily list */
+/* 고정비 (subscriptions + phone bill) and 교통 live in their own tiles, not in the daily list */
+const GROUPS={sub:{name:'고정비',cats:['sub','telecom']},transit:{name:'교통',cats:['transit']}};
+const GROUP_OF={sub:'sub',telecom:'sub',transit:'transit'};
+const GROUPED=new Set(Object.keys(GROUP_OF));
 function rowHTML(i,subText){
   const c=CAT[i.cat]||CAT.etc, sub=subText||(i.memo?c.name:'');
   return `<button class="row" data-id="${esc(i.id)}"><span class="bub" style="--c:${c.c}">${icon(c.id)}</span>`+
@@ -562,7 +565,7 @@ function renderList(all){
   $('#sampleBanner').hidden=!data.items.some(i=>i.ex);
   const list=$('#list'), items=all.filter(i=>!GROUPED.has(i.cat));
   if(!all.length){list.innerHTML=emptyHTML();return}
-  if(!items.length){list.innerHTML=`<div class="empty"><div class="empty-sub">구독과 교통 말고는 기록이 없어요</div></div>`;return}
+  if(!items.length){list.innerHTML=`<div class="empty"><div class="empty-sub">고정비와 교통 말고는 기록이 없어요</div></div>`;return}
   const g={}; items.forEach(i=>(g[i.date]=g[i.date]||[]).push(i));
   list.innerHTML=Object.keys(g).sort().reverse().map(d=>{
     const arr=g[d].sort((a,b)=>b.ts-a.ts), dt=parse(d), diff=dayDiff(d);
@@ -764,11 +767,11 @@ function save(){
   persist();
   const d=parse(it.date); vy=d.getFullYear(); vm=d.getMonth(); statSel=null;
   const grouped=GROUPED.has(it.cat);
-  if(S.back||grouped){finish(grouped&&!S.back?it.cat:S.back)}
+  if(S.back||grouped){finish(grouped&&!S.back?GROUP_OF[it.cat]:S.back)}
   else{hideSheet(); if(tab!=='list')setTab('list');else render()}
   const row=document.querySelector(`.sheet.open .row[data-id="${CSS.escape(it.id)}"], #list .row[data-id="${CSS.escape(it.id)}"]`);
   if(row){row.classList.add('flash');row.scrollIntoView({block:'nearest',behavior:'smooth'})}
-  toast((wasEdit?'수정했어요':'기록했어요')+(grouped&&!S.back?` · ${CAT[it.cat].name}에 담았어요`:''));
+  toast((wasEdit?'수정했어요':'기록했어요')+(grouped&&!S.back?` · ${GROUPS[GROUP_OF[it.cat]].name}에 담았어요`:''));
 }
 let armT;
 function disarm(){clearTimeout(armT);delBtn.classList.remove('armed');delBtn.textContent='삭제'}
@@ -785,7 +788,7 @@ delBtn.onclick=()=>{
   toast('삭제했어요',()=>{data.items.push(it);persist();render();if(openEl===group)renderGroup()});
 };
 $('#addBtn').onclick=()=>openExpense(null);
-/* group sheet: every 구독 or 교통 item of the month, opened from its tile */
+/* group sheet: every 고정비 or 교통 item of the month, opened from its tile */
 let G=null;
 function finish(back){
   /* after saving or deleting: return to the group sheet it came from, otherwise close */
@@ -824,7 +827,7 @@ function kpEstimate(items,y,m){
   return flat>rate?{rides,amt:flat,how:`모두의 카드 · 기준 ${won(base)}원 초과분`}:{rides,amt:rate,how:`기본형 · ${Math.round(k.rate*1000)/10}% 환급`};
 }
 function renderGroup(){
-  const c=CAT[G], items=monthItems(vy,vm).filter(i=>i.cat===G).sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
+  const c=GROUPS[G], items=monthItems(vy,vm).filter(i=>c.cats.includes(i.cat)).sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
   const gross=sum(items), refund=G==='transit'?refundOf(vy,vm):0;
   $('#gTitle').textContent=`${vm+1}월 ${c.name}`;
   $('#gSummary').innerHTML=`<div class="g-total">${won(gross-refund)}<small>원</small></div><div class="g-meta">${items.length}건${G==='transit'?' · K-패스 환급 반영':''}</div>`+
@@ -832,7 +835,7 @@ function renderGroup(){
       (()=>{const e=kpEstimate(items,vy,vm);return `<div class="g-row"><span>예상 환급 <small style="display:block;font-size:12px;color:var(--ink-3)">${e.amt?e.how:`${e.rides}회 탐 · ${KP_MIN}회부터 환급`} · ${(KP[data.kpass]||KP.general).name}</small></span><span>${e.amt?`<span class="good">−${won(e.amt)}원</span>`:'0원'}</span></div>`})()+
       `<button class="g-row" id="gRefund"><span>실제 환급</span><span>${refund?`<span class="good">−${won(refund)}원</span>`:'입력하기'}${CHEV}</span></button></div>`:'');
   $('#gList').innerHTML=items.length
-    ?items.map(i=>{const d=parse(i.date);return rowHTML(i,`${d.getDate()}일 ${DOW[d.getDay()]}요일`)}).join('')
+    ?items.map(i=>{const d=parse(i.date);return rowHTML(i,`${d.getDate()}일 ${DOW[d.getDay()]}요일${c.cats.length>1?` · ${CAT[i.cat].name}`:""}`)}).join('')
     :`<div class="g-empty">${vm+1}월 ${c.name} 기록이 없어요</div>`;
 }
 $('#tileSub').onclick=()=>openGroup('sub');
