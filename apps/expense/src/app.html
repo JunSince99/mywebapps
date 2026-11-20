@@ -76,8 +76,15 @@ button.tile:active{transform:scale(.97)}
 .bar.over i{background:var(--bad)}
 .budget-txt{display:flex;justify-content:space-between;gap:8px;margin-top:7px;font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .budget-txt b{color:var(--ink);font-weight:600}
-.home-cm{margin-top:8px}
-.home-cm .cm{background:var(--tile)}
+/* compact 출근/퇴근 toggles in the transit tile's header (current month only) */
+#tileTransit{cursor:pointer;-webkit-tap-highlight-color:transparent}
+#tileTransit:active:not(:has(.mini:active)){transform:scale(.97)}
+.tile-head{width:100%}
+.minis{display:flex;gap:4px;margin-left:auto}
+.tile-head{white-space:nowrap}.tile-head .tile-ic{flex:none}
+.mini{height:24px;padding:0 7px;border-radius:12px;background:var(--fill-2);color:var(--ink-2);font-size:11px;font-weight:600;white-space:nowrap}
+.mini.on{background:var(--c);color:#fff}
+.mini:active{opacity:.6}
 .view.enter{animation:enter .28s var(--ease)}
 @keyframes enter{from{opacity:0;transform:translateY(6px)}}
 
@@ -285,9 +292,8 @@ button.g-row:active{opacity:.6}
     <div class="budget" id="budget" hidden></div>
     <div class="tiles">
       <button class="tile" id="tileSub"></button>
-      <button class="tile" id="tileTransit"></button>
+      <div class="tile" id="tileTransit" role="button" tabindex="0"></div>
     </div>
-    <div id="homeCm"></div>
   </div>
   <section class="view" id="view-list">
     <div class="banner" id="sampleBanner" hidden>
@@ -479,7 +485,6 @@ function render(){
   $('#heroTotal').innerHTML=`${won(sum(items)-refund)}<small>원</small>`;
   const cmp=compare(items,refund); $('#heroSub').innerHTML=cmp; $('#heroSub').hidden=!cmp;
   renderTiles(items,refund);
-  $('#homeCm').innerHTML=isCur()?commuteHTML().replace('class="commute"','class="commute home-cm"'):'';
   renderBudget(sum(items)-refund);
   if(tab==='list')renderList(items);else renderStats(items,refund);
 }
@@ -504,11 +509,10 @@ function renderTiles(items,refund){
   const subs=items.filter(i=>i.cat==='sub'), tr=items.filter(i=>i.cat==='transit');
   $('#tileSub').innerHTML=`<span class="tile-head"><span class="tile-ic" style="--c:${CAT.sub.c}">${icon('sub')}</span>구독</span>`+
     `<span class="tile-val">${won(sum(subs))}원</span><span class="tile-sub">${subs.length?subs.length+'건 보기':'기록 없음'}${CHEV}</span>`;
-  $('#tileTransit').innerHTML=`<span class="tile-head"><span class="tile-ic" style="--c:${CAT.transit.c}">${icon('transit')}</span>교통</span>`+
+  $('#tileTransit').innerHTML=`<span class="tile-head"><span class="tile-ic" style="--c:${CAT.transit.c}">${icon('transit')}</span>교통${isCur()?`<span class="minis">${Object.entries(COMMUTE).map(([k,n])=>{const on=!!commuteToday(k);return `<button class="mini${on?' on':''}" data-cm="${k}" aria-pressed="${on}" aria-label="오늘 ${n} ${on?'기록됨, 누르면 취소':won(FARE)+'원 기록'}">${n}</button>`}).join('')}</span>`:''}</span>`+
     `<span class="tile-val">${won(sum(tr)-refund)}원</span>`+
     `<span class="tile-sub">${tr.length?tr.length+'건':'기록 없음'}${refund?` · <span class="on">환급 −${won(refund)}</span>`:''}${CHEV}</span>`;
   $('#tileSub').setAttribute('aria-label',`구독 ${won(sum(subs))}원, ${subs.length}건 보기`);
-  $('#tileTransit').setAttribute('aria-label',`교통 ${won(sum(tr)-refund)}원, ${tr.length}건 보기`);
 }
 function emptyHTML(){
   return `<div class="empty"><div class="empty-title">${isCur()?'이번 달':vm+1+'월에는'} 아직 기록이 없어요</div><div class="empty-sub">아래 + 버튼으로 지출을 기록하거나<br>설정에서 백업을 가져올 수 있어요</div></div>`;
@@ -754,8 +758,8 @@ function renderGroup(){
     :`<div class="g-empty">${vm+1}월 ${c.name} 기록이 없어요</div>`;
 }
 $('#tileSub').onclick=()=>openGroup('sub');
-$('#tileTransit').onclick=()=>openGroup('transit');
-$('#homeCm').addEventListener('click',e=>{const cm=e.target.closest('[data-cm]');if(cm)toggleCommute(cm.dataset.cm)});
+$('#tileTransit').onclick=e=>{const cm=e.target.closest('[data-cm]');if(cm)toggleCommute(cm.dataset.cm);else openGroup('transit')};
+$('#tileTransit').onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&e.target.id==='tileTransit'){e.preventDefault();openGroup('transit')}};
 $('#gAdd').onclick=()=>openExpense(null,G,G);
 group.addEventListener('click',e=>{
   const cm=e.target.closest('[data-cm]');if(cm){toggleCommute(cm.dataset.cm);return}
