@@ -28,16 +28,17 @@ body{color:var(--ink);font-family:var(--font);font-size:15px;letter-spacing:-.01
   -webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;
   -webkit-font-smoothing:antialiased;overscroll-behavior-y:none}
 body.lock{overflow:hidden}
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
 button{font:inherit;color:inherit;letter-spacing:inherit;background:none;border:0;padding:0;cursor:pointer;touch-action:manipulation}
 button:focus-visible,.srow:focus-within{outline:2px solid var(--ink);outline-offset:2px}
 svg{display:block}
 .vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 
 /* top bar */
-.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);
-  padding-left:var(--gl);padding-right:var(--gr);transition:box-shadow .2s}
-.topbar.scrolled{box-shadow:0 1px 0 var(--line)}
+/* the bar reaches up through the status bar area; clear at the top, frosted glass once the page scrolls under it */
+.topbar{position:sticky;top:0;z-index:5;padding-top:env(safe-area-inset-top,0px);
+  padding-left:var(--gl);padding-right:var(--gr);background:transparent;transition:background-color .2s,box-shadow .2s}
+.topbar.scrolled{background:color-mix(in srgb,var(--bg) 72%,transparent);
+  -webkit-backdrop-filter:saturate(1.6) blur(20px);backdrop-filter:saturate(1.6) blur(20px);box-shadow:0 1px 0 var(--line)}
 .topbar-in{max-width:440px;margin:0 auto;height:52px;display:flex;align-items:center;justify-content:space-between}
 .mnav{flex:1;display:flex;align-items:center;justify-content:space-between;margin:0 -10px}
 .month{flex:1;text-align:center;font-size:18px;font-weight:700;letter-spacing:-.01em}
