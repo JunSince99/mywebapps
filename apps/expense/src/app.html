@@ -458,7 +458,7 @@ const icon=id=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
 const CHEV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>';
 const CATS=[
   {id:'food',name:'식비',c:'#ef7d3c'},{id:'clothing',name:'의류',c:'#a3774c'},
-  {id:'transit',name:'교통',c:'#2a9df4'},{id:'sub',name:'구독',c:'#f2604f'},
+  {id:'transit',name:'교통',c:'#2a9df4'},{id:'sub',name:'고정비',c:'#f2604f'},
   {id:'telecom',name:'통신',c:'#0ea5b7'},{id:'shop',name:'쇼핑',c:'#e0508a'},
   {id:'game',name:'게임',c:'#22a06b'},{id:'leisure',name:'여가',c:'#d49a06'},
   {id:'edu',name:'교육',c:'#6366f1'},{id:'living',name:'생활',c:'#7f9a3a'},
@@ -551,9 +551,9 @@ function renderTiles(items,refund){
 function emptyHTML(){
   return `<div class="empty"><div class="empty-title">${isCur()?'이번 달':vm+1+'월에는'} 아직 기록이 없어요</div><div class="empty-sub">아래 + 버튼으로 지출을 기록하거나<br>설정에서 백업을 가져올 수 있어요</div></div>`;
 }
-/* 고정비 (subscriptions + phone bill) and 교통 live in their own tiles, not in the daily list */
-const GROUPS={sub:{name:'고정비',cats:['sub','telecom']},transit:{name:'교통',cats:['transit']}};
-const GROUP_OF={sub:'sub',telecom:'sub',transit:'transit'};
+/* 고정비 (the 'sub' category: subscriptions, phone bill …) and 교통 live in their own tiles, not in the daily list */
+const GROUPS={sub:{name:'고정비',cats:['sub']},transit:{name:'교통',cats:['transit']}};
+const GROUP_OF={sub:'sub',transit:'transit'};
 const GROUPED=new Set(Object.keys(GROUP_OF));
 function rowHTML(i,subText){
   const c=CAT[i.cat]||CAT.etc, sub=subText||(i.memo?c.name:'');
