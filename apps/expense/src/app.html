@@ -40,10 +40,9 @@ svg{display:block}
   padding-left:var(--gl);padding-right:var(--gr);background:transparent;transition:background-color .2s,box-shadow .2s}
 .topbar.scrolled{background:color-mix(in srgb,var(--bg) 55%,transparent);
   -webkit-backdrop-filter:saturate(1.6) blur(20px);backdrop-filter:saturate(1.6) blur(20px);box-shadow:0 1px 0 var(--line)}
-.topbar-in{max-width:440px;margin:0 auto;height:52px;display:flex;align-items:center;justify-content:space-between}
+.topbar-in{max-width:440px;margin:0 auto;height:44px;display:flex;align-items:center;justify-content:space-between}
 .mnav{flex:1;display:flex;align-items:center;justify-content:space-between;margin:0 -10px}
-.month{flex:1;text-align:center;font-size:18px;font-weight:700;letter-spacing:-.01em}
-.month small{display:block;margin-top:1px;font-size:11.5px;font-weight:500;color:var(--ink-3)}
+.month{flex:1;text-align:center;font-size:17px;font-weight:700;letter-spacing:-.01em}
 .icon-btn{width:40px;height:40px;display:grid;place-items:center;border-radius:12px}
 .icon-btn:active{background:var(--fill)}
 .icon-btn:disabled{opacity:.3;cursor:default;background:none}
@@ -500,7 +499,7 @@ const monthItems=(y,m)=>{const k=mkey(y,m);return data.items.filter(i=>i.date.sl
 const refundOf=(y,m)=>data.refunds[mkey(y,m)]||0;
 
 function render(){
-  $('#monthLabel').innerHTML=`${vm+1}월<small>${vy}년${isCur()?' · 이번 달':''}</small>`;
+  $('#monthLabel').textContent=vy===today.getFullYear()?`${vm+1}월`:`${vy}년 ${vm+1}월`;
   $('#nextM').disabled=isCur();
   const items=monthItems(vy,vm), refund=refundOf(vy,vm);
   $('#heroLabel').textContent=isCur()?'이번 달 쓴 돈':`${vm+1}월에 쓴 돈`;
