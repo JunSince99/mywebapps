@@ -1,0 +1,971 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>게임</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="게임">
+<meta name="theme-color" content="#0b0c10">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=1">
+<style>
+:root{color-scheme:dark;padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;overscroll-behavior:none}
+body{margin:0;-webkit-touch-callout:none}
+[hidden]{display:none!important}
+</style>
+<style>
+/* Layout: cover-first and dark, like a console home screen. A blurred-cover hero for what you're playing,
+   a cover grid for the pile, rows of covers for cleared and dropped games. The covers carry the color; the UI stays quiet. */
+:root{
+  --bg:#0b0c10; --surface:#15171d; --raise:#1f222a; --raise-2:#2a2e38;
+  --ink:#f1f2f5; --ink-2:#9ba1ad; --ink-3:#5d636f; --line:#1c1f26;
+  --playing:#5b93ff; --backlog:#f2b442; --clear:#38c98c; --drop:#ff7a73;
+  --scrim:rgba(0,0,0,.62);
+  --font:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",system-ui,sans-serif;
+  --gl:max(16px,env(safe-area-inset-left,0px)); --gr:max(16px,env(safe-area-inset-right,0px));
+  --ease:cubic-bezier(.22,.8,.24,1);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--font);font-size:15px;letter-spacing:-.01em;
+  -webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-font-smoothing:antialiased}
+body.lock{overflow:hidden}
+button,label.btnlike{font:inherit;color:inherit;letter-spacing:inherit;background:none;border:0;padding:0;cursor:pointer;touch-action:manipulation}
+button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+svg{display:block}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+.app{max-width:560px;margin:0 auto;padding-bottom:calc(48px + env(safe-area-inset-bottom,0px))}
+.pad{padding-left:var(--gl);padding-right:var(--gr)}
+
+/* stage: the current game's cover, blurred, runs from behind the status bar down through the hero */
+.stage{position:relative}
+.backdrop{position:absolute;left:0;right:0;top:calc(-1 * env(safe-area-inset-top,0px));bottom:-28px;overflow:hidden;z-index:0;pointer-events:none}
+.backdrop i{position:absolute;inset:-25%;background-size:cover;background-position:center;filter:blur(42px) saturate(1.4);opacity:0;transform:scale(1.1);transition:opacity .5s}
+.backdrop i.on{opacity:.62}
+.backdrop b{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(11,12,16,.05) 0%,rgba(11,12,16,.3) 45%,var(--bg) 100%)}
+.stage>*:not(.backdrop){position:relative;z-index:1}
+.top{display:flex;align-items:flex-end;justify-content:space-between;padding-block:12px 2px}
+.top h1{margin:0;font-size:34px;font-weight:800;letter-spacing:-.035em;line-height:1.1}
+
+/* compact bar that fades in once the large title scrolls away */
+.bar{position:fixed;left:0;right:0;top:0;z-index:15;display:flex;align-items:flex-end;justify-content:center;
+  height:calc(44px + env(safe-area-inset-top,0px));padding-bottom:12px;font-size:16px;font-weight:700;
+  background:color-mix(in srgb,var(--bg) 78%,transparent);-webkit-backdrop-filter:saturate(1.6) blur(20px);backdrop-filter:saturate(1.6) blur(20px);
+  border-bottom:1px solid var(--line);opacity:0;pointer-events:none;transition:opacity .2s}
+.bar.show{opacity:1;pointer-events:auto}
+.bar .iconbtn{position:absolute;right:var(--gr);bottom:5px;width:34px;height:34px}
+.bar .iconbtn svg{width:18px;height:18px}
+
+/* numbers under the hero */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:16px;padding-block:12px;border-radius:16px;
+  background:rgba(255,255,255,.055);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+.stats div{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
+.stats div+div{border-left:1px solid rgba(255,255,255,.07)}
+.stats b{font-size:19px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stats b small{font-size:13px;font-weight:700;margin-left:1px;color:var(--ink-2)}
+.stats span{font-size:12px;color:var(--ink-2)}
+.stats i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--s);margin-right:5px;vertical-align:1px}
+
+/* cover: generated art underneath, real image on top once loaded */
+.cv{position:relative;display:block;width:100%;aspect-ratio:3/4;border-radius:8px;overflow:hidden;background:var(--c1,#2a2e38);
+  box-shadow:0 0 0 .5px rgba(255,255,255,.08),0 10px 24px -14px rgba(0,0,0,.9)}
+.cv svg{position:absolute;inset:0;width:100%;height:100%}
+.cv .gt{position:absolute;left:8%;right:8%;bottom:7%;font-size:max(10px,11cqw);font-weight:800;line-height:1.15;color:#fff;word-break:keep-all;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.cv{container-type:inline-size}
+.cv img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s}
+.cv img.ok{opacity:1}
+.badge{position:absolute;right:6%;top:5%;padding:3px 6px;border-radius:5px;background:var(--clear);color:#06120c;font-size:max(8px,7.5cqw);font-weight:800;letter-spacing:.04em}
+
+/* hero */
+.heroes{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.heroes::-webkit-scrollbar{display:none}
+.hero{position:relative;flex:0 0 100%;scroll-snap-align:start;padding-block:8px 6px;text-align:center;cursor:pointer}
+.hero .in{display:flex;flex-direction:column;align-items:center;gap:14px}
+.hero .cv{transition:transform .2s var(--ease)}
+.hero:active .cv{transform:scale(.97)}
+.hero .cv{width:min(38vw,156px);border-radius:10px;box-shadow:0 0 0 .5px rgba(255,255,255,.1),0 24px 40px -16px rgba(0,0,0,.9)}
+.hero .k{font-size:11.5px;font-weight:700;letter-spacing:.08em;color:rgba(255,255,255,.65)}
+.hero h2{margin:2px auto 0;font-size:22px;font-weight:800;letter-spacing:-.02em;line-height:1.2;text-wrap:balance;max-width:86%;word-break:keep-all;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hero p{margin:4px 0 0;font-size:13.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.qa{display:flex;justify-content:center;gap:8px;margin-top:12px}
+.qa button{height:34px;padding:0 14px;border-radius:17px;background:rgba(255,255,255,.12);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  font-size:13.5px;font-weight:700;color:var(--ink);transition:transform .12s,background .15s}
+.qa button:active{transform:scale(.94);background:rgba(255,255,255,.2)}
+.qa .end{color:var(--clear)}
+.dots{display:flex;justify-content:center;gap:6px;margin-top:10px}
+.dots i{width:6px;height:6px;border-radius:3px;background:var(--raise-2);transition:width .25s var(--ease),background .25s}
+.dots i.on{width:18px;background:var(--ink)}
+.hero-empty{margin:14px var(--gr) 4px var(--gl);padding:26px 18px;border-radius:16px;background:var(--surface);text-align:center;color:var(--ink-2);font-size:14px;line-height:1.6}
+
+/* sections */
+.sec{margin-top:30px}
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+.sec-head{align-items:center}
+.sec-head h3{margin:0;font-size:19px;font-weight:800;letter-spacing:-.02em}
+.sec-head h3 em{font-style:normal;margin-left:6px;font-weight:700;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 10px}
+@media (min-width:500px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.tile{display:flex;flex-direction:column;gap:7px;text-align:left;min-width:0}
+.tile:active .cv{transform:scale(.97)}
+.tile .cv{transition:transform .15s}
+.tile b{font-size:13px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
+.tile small{font-size:11.5px;color:var(--ink-3);margin-top:-4px;font-variant-numeric:tabular-nums}
+.shelf{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;margin:0 calc(-1 * var(--gr)) 0 calc(-1 * var(--gl));padding:0 var(--gr) 2px var(--gl)}
+.shelf::-webkit-scrollbar{display:none}
+.shelf .tile{flex:0 0 104px}
+.stars{color:var(--backlog);font-size:11px;letter-spacing:1px;margin-top:-4px}
+.stars span{color:var(--raise-2)}
+.dropped .cv{filter:grayscale(1) brightness(.75)}
+.banner{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:34px;padding:8px 8px 8px 14px;border-radius:12px;background:var(--surface);font-size:13px;color:var(--ink-2)}
+.banner button{flex:none;padding:7px 12px;border-radius:8px;background:var(--raise);font-size:13px;font-weight:600;color:var(--ink)}
+.first{margin-top:40px;text-align:center;color:var(--ink-2);font-size:15px;line-height:1.6}
+.first b{display:block;color:var(--ink);font-size:20px;margin-bottom:6px}
+
+
+/* sheets */
+.scrim{position:fixed;inset:0;z-index:30;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity .28s}
+.scrim.open{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:31;max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px;
+  max-height:calc(100% - 20px - env(safe-area-inset-top,0px));overflow-y:auto;overscroll-behavior:contain;
+  padding:10px var(--gr) calc(18px + env(safe-area-inset-bottom,0px)) var(--gl);border-radius:22px 22px 0 0;background:var(--surface);outline:none;
+  transform:translateY(105%);visibility:hidden;transition:transform .34s var(--ease),visibility 0s .34s}
+.sheet.open{transform:none;visibility:visible;transition:transform .34s var(--ease),visibility 0s}
+.grab{align-self:center;width:36px;height:5px;border-radius:3px;background:var(--raise-2);flex:none}
+.sheet h4{margin:0;font-size:19px;font-weight:800}
+.field{display:flex;flex-direction:column;gap:8px}
+.label{font-size:13px;font-weight:600;color:var(--ink-2);padding-left:2px}
+.input{width:100%;height:48px;padding:0 14px;border:0;border-radius:12px;background:var(--raise);outline:none;
+  font:inherit;font-size:16px;color:var(--ink);-webkit-user-select:text;user-select:text}
+.input::placeholder{color:var(--ink-3)}
+.input:focus{box-shadow:inset 0 0 0 2px var(--raise-2)}
+.searchrow{display:flex;gap:8px}
+.searchrow .input{flex:1}
+.searchrow button{flex:none;width:48px;height:48px;display:grid;place-items:center;border-radius:12px;background:var(--raise);color:var(--ink)}
+.searchrow button svg{width:20px;height:20px}
+.picks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.pick{display:flex;flex-direction:column;gap:6px;text-align:left;min-width:0;border-radius:10px}
+.pick .cv{box-shadow:0 0 0 .5px rgba(255,255,255,.08)}
+.pick[aria-pressed="true"] .cv{box-shadow:0 0 0 3px var(--ink)}
+.pick small{font-size:11.5px;line-height:1.3;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pick .ph{aspect-ratio:3/4;border-radius:8px;background:var(--raise);display:grid;place-items:center;text-align:center;font-size:12.5px;font-weight:600;color:var(--ink-2);padding:8px;line-height:1.4}
+.pick .ph svg{width:26px;height:26px;margin:0 auto 6px;color:var(--ink-3)}
+.pickmsg{margin:0 0 10px;font-size:13px;color:var(--ink-2);line-height:1.5;padding-left:2px}
+.skel{aspect-ratio:3/4;border-radius:8px;background:var(--raise);animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.5}}
+.seg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;padding:3px;border-radius:12px;background:var(--raise)}
+.st{display:flex;align-items:center;justify-content:center;gap:6px;height:38px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--ink-2);transition:background .18s,color .18s}
+.st i{width:7px;height:7px;border-radius:50%;background:var(--s)}
+.st[aria-pressed="true"]{background:color-mix(in srgb,var(--s) 26%,var(--raise-2));color:var(--ink)}
+.group{display:flex;flex-direction:column;padding:0 14px;border-radius:14px;background:var(--raise)}
+.grow{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding-block:7px}
+.grow+.grow{border-top:1px solid var(--raise-2)}
+.grow>.lb{font-size:15px;font-weight:500}
+.grow>.lb small{display:block;margin-top:2px;font-size:12px;font-weight:400;color:var(--ink-2)}
+button.grow{width:100%;text-align:left}
+.step{display:flex;align-items:center;gap:6px}
+.step button{width:32px;height:32px;border-radius:9px;background:var(--raise-2);font-size:18px;line-height:1}
+.step button:active{transform:scale(.92)}
+.step input{width:56px;height:32px;border:0;background:transparent;text-align:right;outline:none;font:inherit;font-size:18px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;-webkit-user-select:text;user-select:text}
+.step span{font-size:13px;color:var(--ink-2);margin:0 6px 0 -2px}
+.selwrap{position:relative;display:flex;align-items:center;gap:2px;color:var(--ink-2)}
+.selwrap select{appearance:none;-webkit-appearance:none;border:0;background:transparent;outline:none;font:inherit;font-size:15px;color:var(--ink-2);text-align:right;text-align-last:right;padding:8px 0;cursor:pointer}
+.selwrap svg{width:16px;height:16px;pointer-events:none}
+.ginput{width:100%;height:52px;border:0;background:transparent;outline:none;font:inherit;font-size:15px;color:var(--ink);-webkit-user-select:text;user-select:text}
+.ginput::placeholder{color:var(--ink-3)}
+.delbtn{align-self:center;height:40px;padding:0 16px;border-radius:20px;font-size:14.5px;font-weight:600;color:var(--drop);transition:background .15s}
+.delbtn.armed{background:color-mix(in srgb,var(--drop) 16%,transparent)}
+.dhead{position:relative;flex:none;margin:-10px calc(-1 * var(--gr)) 0 calc(-1 * var(--gl));padding:28px var(--gr) 4px var(--gl);overflow:hidden;border-radius:22px 22px 0 0;text-align:center;touch-action:none}
+.dhead .bg{position:absolute;inset:-30%;background-size:cover;background-position:center;filter:blur(40px) saturate(1.4);opacity:.6}
+.dhead .fd{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(21,23,29,.1),var(--surface) 96%)}
+.dhead .in{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px}
+.dhead #dCover{width:132px}
+.dhead h4{margin-top:6px;font-size:22px;line-height:1.2;word-break:keep-all;text-wrap:balance;max-width:90%}
+.dhead p{margin:0;font-size:13px;color:var(--ink-2);line-height:1.5}
+.dhead .grab{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:2}
+.close{position:absolute;top:14px;right:var(--gr);z-index:2;width:32px;height:32px;display:grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.12);color:var(--ink-2)}
+.close svg{width:16px;height:16px}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;touch-action:none}
+.sheet-head .close{position:static;background:var(--raise)}
+.linkbtn{height:32px;padding:0 14px;border-radius:16px;background:rgba(255,255,255,.1);font-size:13px;font-weight:700;color:var(--ink)}
+.sheet.dragging{transition:none}
+.rate{display:flex;gap:0}
+.rate button{width:30px;height:34px;font-size:21px;color:var(--raise-2)}
+.rate button.on{color:var(--backlog)}
+.actions{display:flex;gap:8px}
+.btn{flex:1;height:52px;border-radius:14px;background:var(--ink);color:var(--surface);font-size:16px;font-weight:700}
+.btn:disabled{background:var(--raise);color:var(--ink-3);cursor:default}
+.toast{position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom,0px));z-index:40;display:flex;align-items:center;gap:6px;padding:10px 18px;border-radius:999px;
+  background:var(--ink);color:var(--bg);font-size:14px;font-weight:600;white-space:nowrap;opacity:0;transform:translate(-50%,10px);pointer-events:none;transition:opacity .2s,transform .25s var(--ease)}
+.toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.toast button{margin:-4px -10px -4px 4px;padding:4px 10px;border-radius:999px;font-weight:700;color:var(--bg);background:rgba(0,0,0,.12)}
+/* header button */
+.tools{display:flex;gap:8px;margin-bottom:2px}
+.iconbtn{width:38px;height:38px;display:grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.1);color:var(--ink);transition:transform .12s}
+.iconbtn:active{transform:scale(.92)}
+.iconbtn.primary{background:var(--ink);color:var(--bg)}
+.iconbtn svg{width:20px;height:20px}
+/* backlog tools */
+.sec-head .right{display:flex;align-items:center;gap:8px}
+.pickbtn{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 12px;border-radius:15px;background:var(--surface);font-size:13px;font-weight:700;color:var(--backlog)}
+.pickbtn svg{width:15px;height:15px}
+.pickbtn.big{height:40px;padding:0 18px;border-radius:20px;margin-top:12px;font-size:14.5px;background:var(--raise)}
+.sorts{display:flex;gap:6px;margin:-2px 0 14px}
+.sorts button{height:30px;padding:0 12px;border-radius:15px;background:var(--surface);font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.sorts button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.plat-h{grid-column:1/-1;display:flex;gap:6px;align-items:baseline;margin-top:4px;font-size:13px;font-weight:700;color:var(--ink-2)}
+.plat-h:first-child{margin-top:0}
+.plat-h span{font-weight:600;color:var(--ink-3)}
+.nextb{position:absolute;left:6%;top:5%;padding:3px 6px;border-radius:5px;background:var(--backlog);color:#1d1404;font-size:max(8px,7.5cqw);font-weight:800;letter-spacing:.04em}
+.year{display:flex;gap:6px;align-items:baseline;margin:2px 0 10px;font-size:13px;font-weight:700;color:var(--ink-2)}
+.year span{font-weight:600;color:var(--ink-3)}
+.shelf+.year{margin-top:18px}
+.sw{flex:none;position:relative;width:48px;height:29px;border-radius:15px;background:var(--raise-2);transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:23px;height:23px;border-radius:50%;background:#fff;transition:transform .22s var(--ease)}
+.sw.on{background:var(--backlog)}
+.sw.on::after{transform:translateX(19px)}
+/* pick sheet */
+.k2{font-size:13px;font-weight:700;color:var(--backlog);letter-spacing:.02em}
+#pCover{width:min(46vw,180px)}
+#pCover.deal{animation:deal .38s var(--ease)}
+@keyframes deal{from{transform:translateY(14px) rotate(-5deg) scale(.93);opacity:0}}
+.btn.alt{flex:none;width:120px;background:var(--raise);color:var(--ink)}
+/* settings */
+.rows{display:flex;flex-direction:column;padding:0 14px;border-radius:14px;background:var(--raise)}
+.srow{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding-block:14px;text-align:left;cursor:pointer}
+.rows>.srow~.srow{border-top:1px solid var(--raise-2)}
+.srow span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.srow b{font-size:15.5px;font-weight:600}
+.srow small{font-size:12.5px;color:var(--ink-2)}
+.srow svg{flex:none;width:18px;height:18px;color:var(--ink-3)}
+.srow:active{opacity:.6}
+.srow.danger b{color:var(--drop)}
+.srow.danger.armed small{color:var(--drop);font-weight:700}
+.srow.ready b{color:var(--clear)}
+.sfoot{margin:0;font-size:12.5px;line-height:1.55;color:var(--ink-3)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:0s!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="bar" id="bar">게임<button class="iconbtn primary" id="barAdd" aria-label="게임 추가"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button></div>
+<main class="app">
+  <div class="stage">
+    <div class="backdrop" aria-hidden="true"><i id="bd1"></i><i id="bd2"></i><b></b></div>
+    <div class="top pad"><h1>게임</h1><div class="tools"><button class="iconbtn primary" id="addBtn" aria-label="게임 추가"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button><button class="iconbtn" id="setBtn" aria-label="설정"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7.5h9M19 7.5h1M4 16.5h3M13 16.5h7"/><circle cx="16" cy="7.5" r="2.5"/><circle cx="10" cy="16.5" r="2.5"/></svg></button></div></div>
+    <div id="heroArea"></div>
+  </div>
+  <div class="pad">
+    <div class="stats" id="stats"></div>
+    <div id="sections"></div>
+    <div class="banner" id="sampleBanner" hidden><span>예시 게임이 들어 있어요</span><button id="sampleClear">예시 지우기</button></div>
+  </div>
+</main>
+<div class="scrim" id="scrim"></div>
+
+<div class="sheet" id="addSheet" role="dialog" aria-modal="true" aria-labelledby="addH" tabindex="-1">
+  <span class="grab"></span>
+  <div class="sheet-head"><h4 id="addH">게임 추가</h4><button class="close" data-close aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="searchrow"><input class="input" id="addTitle" placeholder="게임 제목 (예: 엘든 링)" maxlength="80" autocomplete="off" enterkeyhint="search" aria-label="게임 제목"><button id="addSearch" aria-label="커버 찾기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></button></div>
+  <div id="addPicker"></div>
+  <div class="seg" id="addStatus" role="group" aria-label="상태"></div>
+  <div class="group"><div class="grow"><span class="lb">플랫폼</span><label class="selwrap"><select id="addPlatSel" aria-label="플랫폼"></select><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10l4 4 4-4"/></svg></label></div></div>
+  <div class="actions"><button class="btn" id="addSave" disabled>추가하기</button></div>
+</div>
+
+<div class="sheet" id="detail" role="dialog" aria-modal="true" aria-labelledby="dTitle" tabindex="-1">
+  <div class="dhead"><div class="bg" id="dBg"></div><div class="fd"></div><span class="grab"></span><button class="close" data-close aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="in"><div id="dCover"></div><h4 id="dTitle"></h4><p id="dMeta"></p><button class="linkbtn" id="dCoverBtn">커버 바꾸기</button></div></div>
+  <div class="field" id="dPickerField" hidden><div class="searchrow"><input class="input" id="dQuery" maxlength="80" autocomplete="off" enterkeyhint="search"><button id="dSearch">찾기</button></div><div id="dPicker"></div></div>
+  <div class="seg" id="dStatus" role="group" aria-label="상태"></div>
+  <div class="group">
+    <div class="grow"><span class="lb">플레이 시간</span><div class="step"><button id="hMinus" aria-label="1시간 빼기">−</button><input id="dHours" type="number" inputmode="numeric" min="0" max="9999" aria-label="플레이 시간"><span>시간</span><button id="hPlus" aria-label="1시간 더하기">+</button></div></div>
+    <div class="grow" id="rateRow"><span class="lb">평점</span><div class="rate" id="dRate"></div></div>
+    <div class="grow"><span class="lb">플랫폼</span><label class="selwrap"><select id="dPlatSel" aria-label="플랫폼"></select><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10l4 4 4-4"/></svg></label></div>
+    <button class="grow" id="dNext"><span class="lb">다음에 할 게임<small>쌓아둔 게임 맨 앞에 NEXT로 보여요</small></span><i class="sw"></i></button>
+  </div>
+  <div class="group"><input class="ginput" id="dMemo" placeholder="한 줄 메모" maxlength="60" autocomplete="off" aria-label="한 줄 메모"></div>
+  <button class="delbtn" id="dDel">게임 삭제</button>
+</div>
+
+<div class="sheet" id="pickSheet" role="dialog" aria-modal="true" aria-labelledby="pTitle" tabindex="-1">
+  <div class="dhead"><div class="bg" id="pBg"></div><div class="fd"></div><span class="grab"></span><button class="close" data-close aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="in"><span class="k2">오늘은 이거 어때요?</span><div id="pCover"></div><h4 id="pTitle"></h4><p id="pMeta"></p></div></div>
+  <div class="actions"><button class="btn alt" id="pAgain">다른 거</button><button class="btn" id="pGo">이거 할래</button></div>
+</div>
+
+<div class="sheet" id="settings" role="dialog" aria-modal="true" aria-labelledby="sH" tabindex="-1">
+  <span class="grab"></span>
+  <div class="sheet-head"><h4 id="sH">설정</h4><button class="close" data-close aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <span class="label">자동 백업</span>
+  <div id="cloudBox"></div>
+  <span class="label">파일 백업과 데이터</span>
+  <div class="rows">
+    <button class="srow" id="expBtn"><span><b id="expTitle">백업 내보내기</b><small id="expSub">게임 기록과 커버를 파일 하나로 저장해요</small></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+    <label class="srow" for="impFile"><span><b>백업 가져오기</b><small>내보낸 백업 파일에서 불러와요</small></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></label>
+    <button class="srow" id="exClear"><span><b>예시 게임 지우기</b><small>처음에 들어 있던 예시만 지워요</small></span></button>
+    <button class="srow danger" id="allClear"><span><b>모든 기록 지우기</b><small id="allClearSub">게임과 커버를 모두 지워요</small></span></button>
+  </div>
+  <input type="file" id="impFile" class="vh" tabindex="-1">
+  <p class="sfoot" id="setFoot"></p>
+</div>
+
+<div class="toast" id="toast" role="status"><span id="toastText"></span><button id="undoBtn" hidden>되돌리기</button></div>
+
+<script>
+/* Auto backup to a secret GitHub Gist, shared by every app in this repo (each app's build inlines this file).
+   One gist ("mywebapps backup") holds one file per app. The token is kept only in this device's storage.
+   App side: Cloud.init({...}) once, Cloud.changed() after every save, Cloud.mount(el) when settings open. */
+(function(){
+const API='https://api.github.com', DESC='mywebapps backup';
+const TOKEN_URL='https://github.com/settings/tokens/new?scopes=gist&description=mywebapps%20backup';
+const LS={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}};
+let cfg=null,root=null,timer=null,busy=false,again=false,state='idle',error='',armed=null,armT=null;
+const token=()=>LS.get('cloud.token'), gist=()=>LS.get('cloud.gist');
+const lastKey=()=>`cloud.last.${cfg.file}`, last=()=>+LS.get(lastKey())||0;
+
+async function gh(path,opt={}){
+  const r=await fetch(API+path,{...opt,cache:'no-store',headers:{'Authorization':'Bearer '+token(),'Accept':'application/vnd.github+json',...(opt.body?{'Content-Type':'application/json'}:{})}});
+  if(!r.ok){const e=new Error('http '+r.status);e.status=r.status;throw e}
+  return r.status===204?null:r.json();
+}
+function errText(e){
+  if(e&&e.status===401)return '토큰이 맞지 않거나 만료됐어요. 연결을 끊고 새 토큰으로 다시 연결해 주세요.';
+  if(e&&(e.status===403||e.status===404))return 'Gist 권한이 없는 토큰이에요. 토큰을 만들 때 gist에 체크했는지 확인해 주세요.';
+  if(e&&e.status)return `백업하지 못했어요 (오류 ${e.status}). 잠시 뒤 다시 시도해요.`;
+  return '인터넷에 연결되면 다시 백업할게요.';
+}
+async function findGist(){
+  for(let page=1;page<=5;page++){
+    const list=await gh(`/gists?per_page=100&page=${page}`);
+    const g=list.find(x=>x.description===DESC);if(g)return g.id;
+    if(list.length<100)break;
+  }
+  return null;
+}
+async function readRemote(){
+  if(!gist())return null;
+  const g=await gh(`/gists/${gist()}`);
+  const f=g.files&&g.files[cfg.file];if(!f)return null;
+  let text=f.content;
+  if(f.truncated&&f.raw_url)text=await (await fetch(f.raw_url,{cache:'no-store'})).text();
+  try{return JSON.parse(text)}catch(e){return null}
+}
+async function upload(){
+  if(!token()||state==='conflict')return;
+  if(busy){again=true;return}
+  busy=true;clearTimeout(timer);timer=null;state='saving';paint();
+  try{
+    const content=JSON.stringify(await cfg.getData());
+    if(!gist()){const id=await findGist();if(id)LS.set('cloud.gist',id)}
+    let done=false;
+    if(gist()){
+      try{await gh(`/gists/${gist()}`,{method:'PATCH',body:JSON.stringify({files:{[cfg.file]:{content}}})});done=true}
+      catch(e){if(e.status===404)LS.set('cloud.gist',null);else throw e} /* gist was deleted: make a new one */
+    }
+    if(!done){const g=await gh('/gists',{method:'POST',body:JSON.stringify({description:DESC,public:false,files:{[cfg.file]:{content}}})});LS.set('cloud.gist',g.id)}
+    LS.set(lastKey(),String(Date.now()));error='';
+  }catch(e){error=errText(e)}
+  busy=false;state='idle';paint();
+  if(again){again=false;schedule(1500)}
+}
+function schedule(ms=4000){if(!cfg||!token()||state==='conflict')return;clearTimeout(timer);timer=setTimeout(upload,ms)}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&timer)upload()});
+window.addEventListener('online',()=>{if(error)schedule(800)});
+
+async function connect(raw){
+  const t=String(raw||'').trim();if(!t)return;
+  LS.set('cloud.token',t);LS.set('cloud.gist',null);error='';state='connecting';paint();
+  try{
+    await gh('/gists?per_page=1'); /* checks the token */
+    const id=await findGist();if(id)LS.set('cloud.gist',id);
+    const remote=id?await readRemote():null;
+    if(remote&&!cfg.hasLocalData()){
+      await cfg.applyData(remote);LS.set(lastKey(),String(Date.now()));state='idle';paint();
+      cfg.toast&&cfg.toast('백업에서 기록을 복원했어요');return;
+    }
+    if(remote){state='conflict';paint();return} /* both sides have records: let the person choose */
+    state='idle';await upload();
+    if(!error&&cfg.toast)cfg.toast('자동 백업을 켰어요');
+  }catch(e){LS.set('cloud.token',null);LS.set('cloud.gist',null);state='idle';error=errText(e);paint()}
+}
+async function restore(){
+  state='restoring';paint();
+  try{
+    const remote=await readRemote();
+    if(!remote){state='idle';error='백업에 이 앱의 기록이 아직 없어요.';paint();return}
+    await cfg.applyData(remote);LS.set(lastKey(),String(Date.now()));state='idle';error='';paint();
+    cfg.toast&&cfg.toast('백업에서 기록을 복원했어요');
+  }catch(e){state='idle';error=errText(e);paint()}
+}
+function disconnect(){clearTimeout(timer);timer=null;LS.set('cloud.token',null);LS.set('cloud.gist',null);state='idle';error='';paint()}
+
+/* ---------- settings UI ---------- */
+const ago=t=>{if(!t)return '아직 백업 전';const s=(Date.now()-t)/1000;if(s<60)return '방금 백업했어요';if(s<3600)return `${Math.floor(s/60)}분 전에 백업했어요`;
+  if(s<86400)return `${Math.floor(s/3600)}시간 전에 백업했어요`;const d=new Date(t);return `${d.getMonth()+1}월 ${d.getDate()}일에 백업했어요`};
+const CSS=`.cl{display:flex;flex-direction:column;gap:10px}
+.cl-box{display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:14px;background:var(--cl-bg)}
+.cl-note{margin:0;font-size:13px;line-height:1.55;color:var(--ink-2)}
+.cl-step{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;font-weight:600}
+.cl-link{flex:none;display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:10px;background:var(--cl-bg2);color:var(--ink);font-size:13.5px;font-weight:700;text-decoration:none}
+.cl-row{display:flex;gap:8px}
+.cl-in{flex:1;min-width:0;height:44px;padding:0 12px;border:0;border-radius:10px;background:var(--cl-bg2);color:var(--ink);font:inherit;font-size:16px;outline:none;-webkit-user-select:text;user-select:text}
+.cl-in::placeholder{color:var(--ink-3)}
+.cl-btn{flex:none;height:44px;padding:0 16px;border-radius:10px;background:var(--ink);color:var(--cl-on);font:inherit;font-size:14px;font-weight:700;border:0;cursor:pointer}
+.cl-btn:disabled{opacity:.4;cursor:default}
+.cl-btn.sub{background:var(--cl-bg2);color:var(--ink)}
+.cl-btn.warn{background:var(--cl-bg2);color:var(--cl-warn)}
+.cl-btn.armed{background:var(--cl-warn);color:var(--cl-on)}
+.cl-acts{display:flex;gap:8px;flex-wrap:wrap}
+.cl-acts .cl-btn{flex:1;height:40px;padding:0 10px;font-size:13.5px}
+.cl-status{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600}
+.cl-status i{flex:none;width:8px;height:8px;border-radius:50%;background:var(--cl-ok)}
+.cl-status i.busy{background:var(--ink-3);animation:clp 1s ease-in-out infinite}
+.cl-status i.err{background:var(--cl-warn)}
+.cl-status small{display:block;margin-top:2px;font-size:12.5px;font-weight:400;color:var(--ink-2)}
+.cl-err{margin:0;font-size:13px;line-height:1.5;color:var(--cl-warn)}
+@keyframes clp{50%{opacity:.35}}`;
+function paint(){
+  if(!root||!root.isConnected)return;
+  const on=!!token(),busyNow=state==='saving'||state==='connecting'||state==='restoring';
+  let h='';
+  if(!on){
+    h=`<div class="cl-box"><p class="cl-note">GitHub 비밀 Gist에 기록을 자동으로 백업해요. 앱을 다시 설치하거나 폰을 바꿔도 토큰만 넣으면 그대로 돌아와요. 토큰은 이 기기에만 저장돼요.</p>
+      <div class="cl-step"><span>1. GitHub에서 토큰 만들기</span><a class="cl-link" href="${TOKEN_URL}" target="_blank" rel="noopener">열기 ↗</a></div>
+      <div class="cl-row"><input class="cl-in" data-cl="in" placeholder="2. 토큰 붙여넣기 (ghp_…)" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="cl-btn" data-cl="connect"${busyNow?' disabled':''}>${state==='connecting'?'연결 중…':'연결'}</button></div>
+      ${error?`<p class="cl-err">${error}</p>`:''}</div>`;
+  }else if(state==='conflict'){
+    h=`<div class="cl-box"><div class="cl-status"><i class="err"></i><span>백업과 이 기기에 모두 기록이 있어요<small>어느 쪽을 남길지 골라 주세요</small></span></div>
+      <div class="cl-acts"><button class="cl-btn sub" data-cl="restore">백업으로 바꾸기</button><button class="cl-btn sub" data-cl="push">이 기기 기록으로 백업</button></div></div>`;
+  }else{
+    const label=state==='saving'?'백업하는 중…':state==='restoring'?'복원하는 중…':state==='connecting'?'연결 중…':ago(last());
+    h=`<div class="cl-box"><div class="cl-status"><i class="${busyNow?'busy':error?'err':''}"></i><span>자동 백업 켜짐<small>${label}</small></span></div>
+      ${error?`<p class="cl-err">${error}</p>`:''}
+      <div class="cl-acts"><button class="cl-btn sub" data-cl="now"${busyNow?' disabled':''}>지금 백업</button>
+      <button class="cl-btn sub${armed==='restore'?' armed':''}" data-cl="restore"${busyNow?' disabled':''}>${armed==='restore'?'한 번 더 누르면 복원':'백업에서 복원'}</button>
+      <button class="cl-btn warn${armed==='off'?' armed':''}" data-cl="off">${armed==='off'?'한 번 더 누르면 끄기':'끄기'}</button></div></div>`;
+  }
+  root.innerHTML=h;
+  if(cfg.onState)cfg.onState(); /* lets the app refresh text that depends on whether backup is on */
+}
+function arm(what){clearTimeout(armT);armed=what;paint();armT=setTimeout(()=>{armed=null;paint()},3000)}
+function onClick(e){
+  const b=e.target.closest('[data-cl]');if(!b||b.disabled)return;
+  const a=b.dataset.cl;
+  if(a==='connect')connect(root.querySelector('[data-cl="in"]').value);
+  else if(a==='now')upload();
+  else if(a==='push'){state='idle';upload()}
+  else if(a==='restore'){if(state==='conflict'||armed==='restore'){armed=null;restore()}else arm('restore')}
+  else if(a==='off'){if(armed==='off'){armed=null;disconnect()}else arm('off')}
+}
+
+window.Cloud={
+  init(c){
+    cfg=c;
+    if(!document.getElementById('cl-css')){const s=document.createElement('style');s.id='cl-css';s.textContent=CSS;document.head.appendChild(s)}
+    if(token())schedule(2500); /* catch up anything saved while offline */
+  },
+  changed(){schedule()},
+  mount(el){
+    root=el;armed=null;
+    Object.entries(cfg.vars||{}).forEach(([k,v])=>el.style.setProperty(k,v));
+    if(!el.dataset.clBound){el.addEventListener('click',onClick);el.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset.cl==='in'){e.preventDefault();connect(e.target.value)}});el.dataset.clBound='1'}
+    paint();
+  },
+  get on(){return !!token()},
+};
+})();
+
+</script>
+<script>
+(function(){
+const KEY='games.v1';
+const ST=[{id:'playing',name:'하는 중',v:'--playing'},{id:'backlog',name:'쌓아둠',v:'--backlog'},{id:'clear',name:'엔딩',v:'--clear'},{id:'drop',name:'그만둠',v:'--drop'}];
+const PLAT=['Switch','PS5','PC','Xbox','모바일','기타'];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const p2=n=>String(n).padStart(2,'0');
+const today=new Date();today.setHours(0,0,0,0);
+const ymd=d=>`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+const parse=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const ago=n=>{const d=new Date(today);d.setDate(d.getDate()-n);return ymd(d)};
+const daysSince=s=>Math.round((today-parse(s))/864e5)+1;
+const md=s=>{const d=parse(s);return `${d.getFullYear()}.${p2(d.getMonth()+1)}.${p2(d.getDate())}`};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const hash=s=>{let h=2166136261;for(const ch of s){h^=ch.codePointAt(0);h=Math.imul(h,16777619)}return h>>>0};
+
+/* ---------- metadata (localStorage) ---------- */
+function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);if(d&&Array.isArray(d.games))return d}}catch(e){}return null}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}if(window.Cloud)Cloud.changed()}
+function seed(){
+  const g=(title,q,plat,status,hours,rating,started,finished,added)=>({id:uid(),title,q,plat,status,hours,rating,memo:'',
+    started:started!=null?ago(started):null,finished:finished!=null?ago(finished):null,added:ago(added),ex:true});
+  return {games:[
+    g('발더스 게이트 3',"Baldur's Gate 3",'PC','playing',41,0,38,null,60),
+    g('젤다의 전설 시간의 오카리나','The Legend of Zelda: Ocarina of Time','Switch','playing',6,0,9,null,9),
+    g('엘든 링','Elden Ring','PS5','backlog',0,0,null,null,120),
+    g('하데스 II','Hades II','Switch','backlog',0,0,null,null,30),
+    g('할로우 나이트: 실크송','Hollow Knight: Silksong','PC','backlog',0,0,null,null,50),
+    g('파이널 판타지 VII 리버스','Final Fantasy VII Rebirth','PS5','backlog',0,0,null,null,200),
+    g('젤다의 전설 티어스 오브 더 킹덤','The Legend of Zelda: Tears of the Kingdom','Switch','clear',128,5,310,240,330),
+    g('스타듀 밸리','Stardew Valley','PC','clear',84,4,420,365,430),
+    g('피크민 4','Pikmin 4','Switch','clear',22,4,150,120,160),
+    g('사이버펑크 2077','Cyberpunk 2077','PS5','drop',9,2,200,null,210),
+  ]};
+}
+let data=load(); if(!data){data=seed();persist()}
+
+/* ---------- cover images (IndexedDB, so they work offline) ---------- */
+const idb=(()=>{let dbp;
+  const open=()=>dbp||(dbp=new Promise((res,rej)=>{const r=indexedDB.open('games',1);r.onupgradeneeded=()=>r.result.createObjectStore('covers');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}));
+  const run=(mode,fn)=>open().then(db=>new Promise((res,rej)=>{const t=db.transaction('covers',mode);const q=fn(t.objectStore('covers'));t.oncomplete=()=>res(q&&q.result);t.onerror=()=>rej(t.error)}));
+  return {get:k=>run('readonly',s=>s.get(k)),set:(k,v)=>run('readwrite',s=>s.put(v,k)),del:k=>run('readwrite',s=>s.delete(k)),keys:()=>run('readonly',s=>s.getAllKeys())};
+})();
+const urls={};
+async function coverSrc(g){
+  if(urls[g.id])return urls[g.id];
+  try{const b=await idb.get(g.id);if(b){urls[g.id]=URL.createObjectURL(b);return urls[g.id]}}catch(e){}
+  return g.coverUrl||null;
+}
+async function shrink(blob){
+  try{const bmp=await createImageBitmap(blob);const s=Math.min(1,960/bmp.height);
+    if(s===1&&blob.size<500000)return blob;
+    const c=document.createElement('canvas');c.width=Math.round(bmp.width*s);c.height=Math.round(bmp.height*s);
+    c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+    return await new Promise(r=>c.toBlob(b=>r(b||blob),'image/jpeg',.86));
+  }catch(e){return blob}
+}
+async function setCoverBlob(g,blob){
+  const out=await shrink(blob);
+  await idb.set(g.id,out);
+  if(urls[g.id])URL.revokeObjectURL(urls[g.id]);
+  urls[g.id]=URL.createObjectURL(out); delete g.coverUrl; g.hasCover=true; persist();
+}
+async function setCoverFromUrl(g,url){
+  /* coverSrc remembers where the cover came from, so a cloud backup can store the address instead of the image */
+  try{const r=await fetch(url,{mode:'cors'});if(!r.ok)throw new Error(r.status);await setCoverBlob(g,await r.blob());g.coverSrc=url;persist();return true}
+  catch(e){g.coverUrl=url;g.coverSrc=url;g.hasCover=true;persist();return false} /* shown online only if the image host refuses a copy */
+}
+async function dropCover(id){try{await idb.del(id)}catch(e){}if(urls[id]){URL.revokeObjectURL(urls[id]);delete urls[id]}}
+async function gcCovers(){try{const ids=new Set(data.games.map(g=>g.id));for(const k of await idb.keys())if(!ids.has(k))await dropCover(k)}catch(e){}}
+
+/* ---------- cover search (English Wikipedia; Korean titles go through the linked English article) ---------- */
+const wiki=(lang,params)=>fetch(`https://${lang}.wikipedia.org/w/api.php?`+new URLSearchParams({format:'json',formatversion:'2',origin:'*',...params})).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.json()});
+async function imagesFor(titles){
+  if(!titles.length)return [];
+  const j=await wiki('en',{action:'query',titles:titles.slice(0,40).join('|'),redirects:'1',prop:'pageimages|description',piprop:'thumbnail|original',pithumbsize:'640',pilicense:'any'});
+  const pages=(j.query&&j.query.pages)||[], redirect={};
+  ((j.query&&j.query.redirects)||[]).forEach(r=>{redirect[r.to]=r.from});
+  ((j.query&&j.query.normalized)||[]).forEach(r=>{redirect[r.to]=redirect[r.to]||r.from});
+  const order=t=>{const i=titles.indexOf(t);return i<0?titles.indexOf(redirect[t]):i};
+  return pages.filter(p=>p.thumbnail||p.original)
+    .map(p=>({title:p.title,desc:p.description||'',src:(p.thumbnail||p.original).source,game:/video game|game/i.test(p.description||''),o:order(p.title)}))
+    .sort((a,b)=>(b.game-a.game)||((a.o<0?99:a.o)-(b.o<0?99:b.o)));
+}
+async function searchCovers(q){
+  const titles=[];const add=t=>{if(t&&!titles.includes(t))titles.push(t)};
+  if(/[가-힣]/.test(q)){
+    try{const j=await wiki('ko',{action:'query',generator:'search',gsrsearch:q,gsrlimit:'6',prop:'langlinks',lllang:'en'});
+      ((j.query&&j.query.pages)||[]).sort((a,b)=>(a.index||0)-(b.index||0)).forEach(p=>(p.langlinks||[]).forEach(l=>add(l.title)));
+    }catch(e){}
+  }
+  add(q);
+  const s=await wiki('en',{action:'query',list:'search',srsearch:`${q} video game`,srlimit:'10'});
+  ((s.query&&s.query.search)||[]).forEach(x=>add(x.title));
+  return (await imagesFor(titles)).slice(0,9);
+}
+
+/* ---------- covers in the page ---------- */
+function art(title){
+  const h=hash(title),hu=h%360,m=(h>>9)%4;
+  const c1=`hsl(${hu} 30% 26%)`,c2=`hsl(${hu} 34% 36%)`,c3=`hsl(${hu} 30% 20%)`;let s='';
+  if(m===0)s=`<circle cx="215" cy="120" r="125" fill="${c2}"/><circle cx="70" cy="245" r="38" fill="${c3}"/>`;
+  else if(m===1)s=[0,1,2,3].map(i=>`<polygon points="${-60+i*95},0 ${-10+i*95},0 ${210+i*95},400 ${160+i*95},400" fill="${i%2?c3:c2}"/>`).join('');
+  else if(m===2){for(let y=0;y<4;y++)for(let x=0;x<4;x++)s+=`<circle cx="${70+x*55}" cy="${60+y*55}" r="${(x+y)%3===0?15:9}" fill="${(x+y)%2?c2:c3}"/>`}
+  else s=`<polygon points="0,290 120,110 205,230 250,170 300,240 300,400 0,400" fill="${c3}"/><circle cx="235" cy="85" r="34" fill="${c2}"/>`;
+  return {c1,svg:`<svg viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${s}</svg>`};
+}
+/* covers already on the device are drawn with their image straight away, so redrawing the page never blanks them */
+const knownSrc=g=>urls[g.id]||g.coverUrl||null;
+function cv(g,{badge=true}={}){
+  const a=art(g.title),src=knownSrc(g);
+  return `<span class="cv" data-cover="${g.id}" style="--c1:${a.c1}">${a.svg}<span class="gt">${esc(g.title)}</span>`+
+    `<img alt="" decoding="sync"${src?` src="${esc(src)}" class="ok"`:''}>`+
+    (badge&&g.status==='clear'?'<span class="badge">CLEAR</span>':'')+(badge&&g.next&&g.status==='backlog'?'<span class="nextb">NEXT</span>':'')+`</span>`;
+}
+const showImg=(img,src)=>{img.onload=()=>img.classList.add('ok');img.onerror=()=>img.classList.remove('ok');img.src=src};
+async function hydrate(root=document){
+  for(const el of root.querySelectorAll('[data-cover]')){
+    const img=el.querySelector('img');if(img.getAttribute('src'))continue;
+    const g=data.games.find(x=>x.id===el.dataset.cover);if(!g)continue;
+    const src=await coverSrc(g);if(src)showImg(img,src);
+  }
+}
+/* swap in one game's cover wherever it is shown, without redrawing anything else */
+function refreshCover(g){
+  const src=knownSrc(g);if(!src)return;
+  document.querySelectorAll(`[data-cover="${g.id}"] img`).forEach(img=>{if(img.getAttribute('src')!==src){img.classList.remove('ok');showImg(img,src)}});
+  if(heroGames[heroIdx]===g)setBackdrop(src);
+  if(cur===g)$('#dBg').style.backgroundImage=`url("${src}")`;
+  if(pickCur===g)$('#pBg').style.backgroundImage=`url("${src}")`;
+}
+
+/* ---------- home ---------- */
+function render(){
+  const by=s=>data.games.filter(g=>g.status===s);
+  const playing=by('playing').sort((a,b)=>(b.started||'').localeCompare(a.started||''));
+  const order={recent:(a,b)=>b.added.localeCompare(a.added),name:(a,b)=>a.title.localeCompare(b.title,'ko'),
+    plat:(a,b)=>(PLAT.indexOf(a.plat)-PLAT.indexOf(b.plat))||a.title.localeCompare(b.title,'ko')};
+  const backlog=by('backlog').sort((a,b)=>((b.next?1:0)-(a.next?1:0))||order[sortMode](a,b));
+  const clear=by('clear').sort((a,b)=>(b.finished||'').localeCompare(a.finished||''));
+  const drop=by('drop');
+  const total=data.games.reduce((t,g)=>t+(g.hours||0),0);
+  $('#stats').hidden=!data.games.length;
+  $('#stats').innerHTML=[[playing.length,'하는 중','--playing'],[backlog.length,'쌓아둠','--backlog'],[clear.length,'엔딩','--clear']]
+    .map(([n,l,v])=>`<div><b>${n}</b><span><i style="--s:var(${v})"></i>${l}</span></div>`).join('')+`<div><b>${total.toLocaleString('ko-KR')}<small>h</small></b><span>총 플레이</span></div>`;
+  $('#sampleBanner').hidden=!data.games.some(g=>g.ex);
+
+  const prevHs=$('#heroes'), prevIdx=prevHs?Math.round(prevHs.scrollLeft/Math.max(1,prevHs.clientWidth)):0;
+  heroGames=playing;
+  if(!data.games.length){
+    $('#heroArea').innerHTML='';setBackdrop(null);
+    $('#sections').innerHTML=`<div class="first"><b>첫 게임을 추가해 보세요</b>오른쪽 아래 + 버튼을 누르고 제목을 입력하면<br>커버를 찾아 드려요.</div>`;
+    return;
+  }
+  $('#heroArea').innerHTML=playing.length
+    ?`<div class="heroes" id="heroes">${playing.map(g=>`<div class="hero" data-id="${g.id}"><div class="in">${cv(g)}
+       <div><div class="k">이어서 하기</div><h2>${esc(g.title)}</h2><p>${g.hours||0}시간${g.started?` · ${daysSince(g.started)}일째`:''} · ${esc(g.plat)}</p>
+       <div class="qa"><button data-act="hour" data-g="${g.id}">+1시간</button><button class="end" data-act="clear" data-g="${g.id}">엔딩 봤어요</button></div></div></div></div>`).join('')}</div>`
+      +(playing.length>1?`<div class="dots" id="dots">${playing.map((_,i)=>`<i class="${i?'':'on'}"></i>`).join('')}</div>`:'')
+    :`<div class="hero-empty">지금 하는 게임이 없어요.${backlog.length?`<br><button class="pickbtn big" data-act="pick">${DICE}쌓아둔 게임에서 골라줘</button>`:''}</div>`;
+  const hs=$('#heroes');
+  if(hs){
+    const idx=Math.min(prevIdx,playing.length-1);hs.scrollLeft=idx*hs.clientWidth;heroIdx=-1;onHero(idx);
+    hs.addEventListener('scroll',()=>onHero(Math.round(hs.scrollLeft/Math.max(1,hs.clientWidth))),{passive:true});
+  }else setBackdrop(null);
+
+  const tile=(g,sub)=>`<button class="tile" data-id="${g.id}">${cv(g)}<b>${esc(g.title)}</b>${sub||''}</button>`;
+  const starsHTML=n=>n?`<span class="stars">${'★'.repeat(n)}<span>${'★'.repeat(5-n)}</span></span>`:'';
+  let h='';
+  let grid;
+  if(sortMode==='plat'){const grp={};backlog.forEach(g=>(grp[g.plat]=grp[g.plat]||[]).push(g));
+    grid=PLAT.filter(p=>grp[p]).map(p=>`<div class="plat-h">${p}<span>${grp[p].length}</span></div>${grp[p].map(g=>tile(g)).join('')}`).join('')}
+  else grid=backlog.map(g=>tile(g,`<small>${esc(g.plat)}</small>`)).join('');
+  h+=`<section class="sec"><div class="sec-head"><h3>쌓아둔 게임<em>${backlog.length}</em></h3>${backlog.length>1?`<button class="pickbtn" data-act="pick">${DICE}골라줘</button>`:''}</div>`+
+     (backlog.length>1?`<div class="sorts">${[['recent','최근 추가'],['name','이름순'],['plat','플랫폼별']].map(([k,l])=>`<button data-sort="${k}" aria-pressed="${sortMode===k}">${l}</button>`).join('')}</div>`:'')+
+     (backlog.length?`<div class="grid">${grid}</div>`:`<div class="hero-empty" style="margin:0">쌓인 게임이 없어요. 대단해요.</div>`)+`</section>`;
+  if(clear.length){
+    const yrs={};clear.forEach(g=>{const y=(g.finished||'').slice(0,4)||'날짜 없음';(yrs[y]=yrs[y]||[]).push(g)});
+    h+=`<section class="sec"><div class="sec-head"><h3>엔딩 본 게임<em>${clear.length}</em></h3></div>`+
+      Object.keys(yrs).sort().reverse().map(y=>`<div class="year">${/^\d{4}$/.test(y)?y+'년':y}<span>${yrs[y].length}개</span></div><div class="shelf">${yrs[y].map(g=>
+        tile(g,`<small>${g.finished?+g.finished.slice(5,7)+'월':''}${g.hours?` · ${g.hours}h`:''}</small>${starsHTML(g.rating)}`)).join('')}</div>`).join('')+`</section>`;
+  }
+  if(drop.length)h+=`<section class="sec dropped"><div class="sec-head"><h3>그만둔 게임<em>${drop.length}</em></h3></div><div class="shelf">${drop.map(g=>tile(g,`<small>${g.hours?`${g.hours}시간에서 멈춤`:'시작만 함'}</small>`)).join('')}</div></section>`;
+  $('#sections').innerHTML=h;
+  hydrate();
+}
+/* hero carousel: dots + the blurred backdrop follow the visible game */
+let heroGames=[],heroIdx=-1,bdFront=1,pickCur=null,cur=null;
+let sortMode=(()=>{try{const m=localStorage.getItem('games.sort');return m==='name'||m==='plat'?m:'recent'}catch(e){return 'recent'}})();
+const DICE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path stroke-width="3" d="M9 9h.01M15 15h.01M15 9h.01M9 15h.01"/></svg>';
+function onHero(i){
+  if(i===heroIdx||!heroGames[i])return;heroIdx=i;
+  const d=$('#dots');if(d)d.querySelectorAll('i').forEach((x,j)=>x.classList.toggle('on',i===j));
+  coverSrc(heroGames[i]).then(src=>{if(heroIdx===i)setBackdrop(src)});
+}
+function setBackdrop(src){
+  const front=$('#bd'+bdFront),back=$('#bd'+(3-bdFront));
+  if(!src){front.classList.remove('on');back.classList.remove('on');return}
+  if(front.dataset.src===src&&front.classList.contains('on'))return;
+  back.style.backgroundImage=`url("${src}")`;back.dataset.src=src;back.classList.add('on');front.classList.remove('on');bdFront=3-bdFront;
+}
+document.querySelector('.app').addEventListener('click',e=>{
+  const so=e.target.closest('[data-sort]');
+  if(so){sortMode=so.dataset.sort;try{localStorage.setItem('games.sort',sortMode)}catch(err){}render();return}
+  const act=e.target.closest('[data-act]');
+  if(act&&act.dataset.act==='pick'){openPick();return}
+  if(act){const g=data.games.find(x=>x.id===act.dataset.g);if(!g)return;
+    if(act.dataset.act==='hour'){g.hours=(g.hours||0)+1;persist();render();toast(`${g.hours}시간 플레이했어요`)}
+    else{const before={status:g.status,started:g.started,finished:g.finished};setStatus(g,'clear');persist();render();
+      toast('엔딩 축하해요',()=>{Object.assign(g,before);persist();render()})}
+    return}
+  const b=e.target.closest('[data-id]');if(b)openDetail(b.dataset.id)});
+window.addEventListener('scroll',()=>$('#bar').classList.toggle('show',scrollY>44),{passive:true});
+
+/* ---------- example covers: fetched once on first open ---------- */
+async function fetchExampleCovers(){
+  for(const g of data.games.filter(g=>g.ex&&g.q&&!g.hasCover&&!g.tried)){
+    g.tried=true;persist();
+    try{const r=await imagesFor([g.q]);if(r[0]){await setCoverFromUrl(g,r[0].src);refreshCover(g)}}catch(e){}
+  }
+}
+
+/* ---------- cover picker (used by add and detail) ---------- */
+function picker(root,onPick){
+  const st={results:[],sel:null,file:null};
+  const fileId='f'+uid();
+  const extras=()=>`<label class="pick" for="${fileId}"><span class="ph"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 15.5l-4.5-4.5-8 8"/></svg>사진에서 고르기</span></span></label><input type="file" accept="image/*" id="${fileId}" class="vh">`;
+  const paint=(msg)=>{
+    root.innerHTML=(msg?`<p class="pickmsg">${msg}</p>`:'')+`<div class="picks">${st.results.map((r,i)=>
+      `<button class="pick" data-i="${i}" aria-pressed="${st.sel===i}"><span class="cv"><img class="ok" src="${esc(r.src)}" alt="" referrerpolicy="no-referrer"></span><small>${esc(r.title)}</small></button>`).join('')}${extras()}</div>`;
+    root.querySelector('input[type=file]').addEventListener('change',async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;st.sel='file';st.file=f;
+      const u=URL.createObjectURL(f);st.results=[{title:'내 사진',src:u,file:f},...st.results.filter(r=>!r.file)];st.sel=0;paint();onPick(st.results[0])});
+  };
+  root.addEventListener('click',e=>{const b=e.target.closest('.pick[data-i]');if(!b)return;const i=+b.dataset.i;st.sel=st.sel===i?null:i;
+    root.querySelectorAll('.pick[data-i]').forEach(x=>x.setAttribute('aria-pressed',String(+x.dataset.i===st.sel)));onPick(st.sel==null?null:st.results[st.sel])});
+  let seq=0;
+  return {
+    reset(){st.results=[];st.sel=null;paint('제목을 입력하고 "커버 찾기"를 누르면 위키백과에서 커버를 찾아요.')},
+    async search(q){
+      q=q.trim();if(!q)return;const my=++seq;st.results=[];st.sel=null;onPick(null);
+      root.innerHTML=`<p class="pickmsg">찾는 중…</p><div class="picks">${'<span class="skel"></span>'.repeat(3)}</div>`;
+      try{const r=await searchCovers(q);if(my!==seq)return;st.results=r;
+        if(r.length){st.sel=0;paint('맞는 커버를 골라 주세요.');onPick(r[0])}
+        else paint('커버를 못 찾았어요. 영어 제목으로 다시 찾거나 사진에서 골라 보세요.');
+      }catch(e){if(my!==seq)return;paint('검색하지 못했어요. 인터넷 연결을 확인하거나 사진에서 골라 보세요.')}
+    }
+  };
+}
+const applyPick=async(g,pick)=>{if(!pick)return;if(pick.file){await setCoverBlob(g,pick.file);delete g.coverSrc;persist()}else await setCoverFromUrl(g,pick.src)};
+
+/* ---------- sheets ---------- */
+const scrim=$('#scrim');let openEl=null;
+function show(el){if(openEl&&openEl!==el)openEl.classList.remove('open');openEl=el;el.classList.add('open');scrim.classList.add('open');document.body.classList.add('lock');el.scrollTop=0}
+function hide(){if(!openEl)return;openEl.classList.remove('open');scrim.classList.remove('open');document.body.classList.remove('lock');if(document.activeElement)document.activeElement.blur();openEl=null;render()}
+scrim.onclick=hide;document.addEventListener('keydown',e=>{if(e.key==='Escape')hide()});
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=hide);
+document.querySelectorAll('.sheet').forEach(sh=>{
+  let d=null;
+  sh.addEventListener('pointerdown',e=>{
+    if(!e.target.closest('.grab,.dhead,.sheet-head')||e.target.closest('button,input,label')||sh.scrollTop>0)return;
+    d={y:e.clientY,dy:0,id:e.pointerId};sh.classList.add('dragging');sh.setPointerCapture(e.pointerId)});
+  sh.addEventListener('pointermove',e=>{if(!d||e.pointerId!==d.id)return;d.dy=Math.max(0,e.clientY-d.y);sh.style.transform=`translateY(${d.dy}px)`});
+  const end=()=>{if(!d)return;const dy=d.dy;d=null;sh.classList.remove('dragging');sh.style.transform='';if(dy>100)hide()};
+  sh.addEventListener('pointerup',end);sh.addEventListener('pointercancel',end);
+});
+const statusHTML=()=>ST.map(s=>`<button class="st" data-s="${s.id}" style="--s:var(${s.v})" aria-pressed="false"><i></i>${s.name}</button>`).join('');
+const platOptions=()=>PLAT.map(p=>`<option value="${p}">${p}</option>`).join('');
+const press=(root,attr,val)=>root.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset[attr]===val)));
+function setStatus(g,s){
+  if(g.status===s)return;g.status=s;if(s!=='backlog')g.next=false;
+  if(s==='playing'&&!g.started)g.started=ymd(today);
+  if(s==='clear'){g.finished=ymd(today);if(!g.started)g.started=ymd(today)}else g.finished=null;
+}
+
+/* add */
+const A={plat:'Switch',status:'backlog',pick:null};
+$('#addStatus').innerHTML=statusHTML();$('#addPlatSel').innerHTML=platOptions();
+const addPicker=picker($('#addPicker'),p=>{A.pick=p});
+function openAdd(){A.plat='Switch';A.status='backlog';A.pick=null;$('#addTitle').value='';addPicker.reset();
+  press($('#addStatus'),'s',A.status);$('#addPlatSel').value=A.plat;$('#addSave').disabled=true;show($('#addSheet'));setTimeout(()=>$('#addTitle').focus(),320)}
+$('#addBtn').onclick=openAdd;$('#barAdd').onclick=openAdd;
+let addT;
+$('#addTitle').addEventListener('input',()=>{const v=$('#addTitle').value.trim();$('#addSave').disabled=!v;
+  clearTimeout(addT);if(v.length>=2)addT=setTimeout(()=>addPicker.search(v),700)}); /* search by itself once typing pauses */
+$('#addTitle').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(addT);$('#addTitle').blur();addPicker.search($('#addTitle').value)}});
+$('#addSearch').onclick=()=>{clearTimeout(addT);$('#addTitle').blur();addPicker.search($('#addTitle').value)};
+$('#addStatus').onclick=e=>{const b=e.target.closest('button');if(b){A.status=b.dataset.s;press($('#addStatus'),'s',A.status)}};
+$('#addPlatSel').onchange=()=>{A.plat=$('#addPlatSel').value};
+$('#addSave').onclick=async()=>{
+  const t=$('#addTitle').value.trim();if(!t)return;
+  const g={id:uid(),title:t,plat:A.plat,status:'backlog',hours:0,rating:0,memo:'',started:null,finished:null,added:ymd(today)};
+  setStatus(g,A.status);data.games.push(g);persist();
+  const pick=A.pick;hide();toast(`${ST.find(s=>s.id===g.status).name}에 추가했어요`);
+  if(pick){await applyPick(g,pick);refreshCover(g)}
+};
+
+/* detail */
+$('#dStatus').innerHTML=statusHTML();$('#dPlatSel').innerHTML=platOptions();
+$('#dRate').innerHTML=[1,2,3,4,5].map(i=>`<button data-r="${i}" aria-label="${i}점">★</button>`).join('');
+const dPicker=picker($('#dPicker'),async p=>{if(p&&cur){await applyPick(cur,p);paintDetail();toast('커버를 바꿨어요')}});
+function paintDetail(){
+  const g=cur;
+  $('#dCover').innerHTML=cv(g);hydrate($('#dCover'));
+  coverSrc(g).then(src=>{$('#dBg').style.backgroundImage=src?`url("${src}")`:'none'});
+  $('#dTitle').textContent=g.title;
+  const bits=[];if(g.started)bits.push(`${md(g.started)} 시작`);if(g.finished)bits.push(`${md(g.finished)} 엔딩`);if(!g.started)bits.push(`${md(g.added)} 추가`);
+  $('#dMeta').textContent=bits.join(' · ');
+  press($('#dStatus'),'s',g.status);$('#dPlatSel').value=g.plat;
+  $('#dHours').value=g.hours||0;
+  $('#rateRow').hidden=!(g.status==='clear'||g.status==='drop');
+  $('#dNext').hidden=g.status!=='backlog';$('#dNext .sw').classList.toggle('on',!!g.next);
+  $('#dRate').querySelectorAll('button').forEach(b=>b.classList.toggle('on',+b.dataset.r<=g.rating));
+}
+function openDetail(id){cur=data.games.find(g=>g.id===id);if(!cur)return;$('#dMemo').value=cur.memo||'';$('#dPickerField').hidden=true;disarm();paintDetail();show($('#detail'))}
+$('#dCoverBtn').onclick=()=>{const f=$('#dPickerField');f.hidden=!f.hidden;if(!f.hidden){$('#dQuery').value=cur.q||cur.title;dPicker.search($('#dQuery').value)}};
+$('#dSearch').onclick=()=>{$('#dQuery').blur();dPicker.search($('#dQuery').value)};
+$('#dQuery').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#dQuery').blur();dPicker.search($('#dQuery').value)}});
+$('#dStatus').onclick=e=>{const b=e.target.closest('button');if(!b||!cur)return;const was=cur.status;setStatus(cur,b.dataset.s);persist();paintDetail();if(cur.status==='clear'&&was!=='clear')toast('엔딩 축하해요')};
+$('#dPlatSel').onchange=()=>{if(cur){cur.plat=$('#dPlatSel').value;persist()}};
+const setHours=v=>{cur.hours=Math.max(0,Math.min(9999,Math.round(+v||0)));$('#dHours').value=cur.hours;persist()};
+$('#hMinus').onclick=()=>setHours((cur.hours||0)-1);$('#hPlus').onclick=()=>setHours((cur.hours||0)+1);
+$('#dHours').addEventListener('change',()=>setHours($('#dHours').value));
+$('#dRate').onclick=e=>{const b=e.target.closest('button');if(!b||!cur)return;const r=+b.dataset.r;cur.rating=cur.rating===r?0:r;persist();paintDetail()};
+$('#dMemo').addEventListener('input',()=>{if(cur){cur.memo=$('#dMemo').value.trim();persist()}});
+$('#dNext').onclick=()=>{if(!cur)return;cur.next=!cur.next;persist();paintDetail()};
+
+/* pick: one game from the pile; games marked NEXT come up more often */
+function openPick(){
+  const pool=data.games.filter(g=>g.status==='backlog');if(!pool.length)return;
+  const bag=[];(pool.length>1?pool.filter(g=>g!==pickCur):pool).forEach(g=>{for(let i=0;i<(g.next?3:1);i++)bag.push(g)});
+  pickCur=bag[Math.floor(Math.random()*bag.length)];
+  const g=pickCur,src=knownSrc(g),pc=$('#pCover');
+  pc.innerHTML=cv(g);hydrate(pc);pc.classList.remove('deal');void pc.offsetWidth;pc.classList.add('deal');
+  $('#pBg').style.backgroundImage=src?`url("${src}")`:'none';
+  $('#pTitle').textContent=g.title;
+  const d=daysSince(g.added)-1;$('#pMeta').textContent=`${g.plat} · ${d>0?d+'일째 쌓여 있어요':'오늘 추가한 게임'}`;
+  $('#pAgain').hidden=pool.length<2;
+  if(openEl!==$('#pickSheet'))show($('#pickSheet'));
+}
+$('#pAgain').onclick=openPick;
+$('#pGo').onclick=()=>{const g=pickCur;if(!g)return;setStatus(g,'playing');persist();hide();window.scrollTo({top:0,behavior:'smooth'});toast('좋아요, 이제 하는 중이에요')};
+
+/* settings: backup with covers, example and full reset */
+const blobToDataURL=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(b)});
+const dataURLToBlob=du=>{const [h,b64]=du.split(',');const mime=(h.match(/data:([^;]+)/)||[])[1]||'image/jpeg';const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Blob([u],{type:mime})};
+const okDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||''))?s:null;
+let prepared=null;
+function openSettings(){
+  prepared=null;$('#expBtn').classList.remove('ready');$('#expTitle').textContent='백업 내보내기';$('#expSub').textContent='게임 기록과 커버를 파일 하나로 저장해요';
+  $('#exClear').hidden=!data.games.some(g=>g.ex);disarmAll();
+  setFoot();
+  if(window.Cloud)Cloud.mount($('#cloudBox'));
+  show($('#settings'));
+}
+function setFoot(){
+  const real=data.games.filter(g=>!g.ex),covers=real.filter(g=>g.hasCover).length;
+  $('#setFoot').textContent=window.Cloud&&Cloud.on?`기록과 커버는 이 기기에 저장되고 GitHub Gist에 자동으로 백업돼요. 지금 게임 ${real.length}개, 커버 ${covers}개가 있어요.`
+    :`기록과 커버는 이 기기에만 저장돼요. 지금 게임 ${real.length}개, 커버 ${covers}개가 있어요. 자동 백업을 켜 두면 재설치해도 그대로 돌아와요.`;
+}
+$('#setBtn').onclick=openSettings;
+$('#expBtn').onclick=async()=>{
+  if(prepared){ /* second tap: hand the file to the share sheet (iOS needs a fresh tap for this) */
+    const {blob,name}=prepared;
+    try{const file=new File([blob],name,{type:'application/json'});
+      if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});toast('백업을 내보냈어요');return}}
+    catch(err){if(err&&err.name==='AbortError')return}
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    toast('백업 파일을 만들었어요');return;
+  }
+  $('#expSub').textContent='파일을 만드는 중…';
+  const games=data.games.filter(g=>!g.ex),covers={};
+  for(const g of games){try{const b=await idb.get(g.id);if(b)covers[g.id]=await blobToDataURL(b)}catch(err){}}
+  const blob=new Blob([JSON.stringify({format:'games-backup',version:1,exportedAt:new Date().toISOString(),games,covers})],{type:'application/json'});
+  prepared={blob,name:`games-backup-${ymd(today)}.json`};
+  $('#expBtn').classList.add('ready');$('#expTitle').textContent='준비됐어요. 눌러서 저장하기';
+  $('#expSub').textContent=`게임 ${games.length}개, 커버 ${Object.keys(covers).length}개 · ${(blob.size/1048576).toFixed(1)}MB`;
+};
+$('#impFile').addEventListener('change',async e=>{
+  const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;
+  let obj;try{obj=JSON.parse(await f.text())}catch(err){toast('백업 파일을 읽지 못했어요');return}
+  if(!obj||obj.format!=='games-backup'||!Array.isArray(obj.games)){toast('게임 백업 파일이 아니에요');return}
+  data.games=data.games.filter(g=>!g.ex);
+  const have=new Set(data.games.map(g=>g.id));let added=0,skipped=0;
+  const later=[];
+  for(const g of obj.games){
+    const n=normGame(g);if(!n)continue;
+    if(have.has(n.id)){skipped++;continue}
+    if(!await coverFromBackup(n,obj.covers&&obj.covers[n.id])&&n.coverSrc)later.push(n);
+    data.games.push(n);have.add(n.id);added++;
+  }
+  later.forEach(n=>setCoverFromUrl(n,n.coverSrc).then(()=>refreshCover(n)));
+  persist();hide();toast(skipped?`${added}개 가져옴, 중복 ${skipped}개 제외`:`${added}개 게임을 가져왔어요`);
+});
+$('#exClear').onclick=()=>{hide();clearExamples()};
+
+/* one game from a backup file or the cloud, checked field by field */
+function normGame(g){
+  if(!g||g.id==null||!g.title)return null;
+  const n={id:String(g.id),title:String(g.title).slice(0,80),plat:PLAT.includes(g.plat)?g.plat:'기타',status:ST.some(s=>s.id===g.status)?g.status:'backlog',
+    hours:Math.max(0,Math.min(9999,Math.round(+g.hours||0))),rating:Math.max(0,Math.min(5,Math.round(+g.rating||0))),memo:String(g.memo||'').slice(0,60),
+    started:okDate(g.started),finished:okDate(g.finished),added:okDate(g.added)||ymd(today),next:!!g.next,hasCover:false};
+  if(g.q)n.q=String(g.q).slice(0,120);
+  if(typeof g.coverSrc==='string'&&/^https:\/\//.test(g.coverSrc))n.coverSrc=g.coverSrc;
+  else if(typeof g.coverUrl==='string'&&/^https:\/\//.test(g.coverUrl))n.coverSrc=g.coverUrl;
+  return n;
+}
+/* a cover image carried in the backup itself (photos the person picked); true when one was stored */
+async function coverFromBackup(n,du){
+  if(typeof du!=='string'||!/^data:image\/(jpeg|png|webp|gif);base64,/.test(du))return false;
+  try{const b=dataURLToBlob(du);await idb.set(n.id,b);if(urls[n.id])URL.revokeObjectURL(urls[n.id]);urls[n.id]=URL.createObjectURL(b);n.hasCover=true;return true}catch(e){return false}
+}
+/* cloud copy: covers from Wikipedia travel as their address, picked photos as small thumbnails */
+const thumb=async b=>{try{const bmp=await createImageBitmap(b);const s=Math.min(1,420/bmp.height);if(s===1&&b.size<120000)return b;
+  const c=document.createElement('canvas');c.width=Math.round(bmp.width*s);c.height=Math.round(bmp.height*s);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+  return await new Promise(r=>c.toBlob(x=>r(x||b),'image/jpeg',.8))}catch(e){return b}};
+async function cloudData(){
+  const games=data.games.filter(g=>!g.ex),covers={};
+  for(const g of games){if(g.coverSrc)continue;try{const b=await idb.get(g.id);if(b)covers[g.id]=await blobToDataURL(await thumb(b))}catch(e){}}
+  return {format:'games-backup',version:1,exportedAt:new Date().toISOString(),games,covers};
+}
+async function cloudApply(obj){
+  if(!obj||obj.format!=='games-backup'||!Array.isArray(obj.games))throw new Error('format');
+  const list=obj.games.map(normGame).filter(Boolean);
+  for(const n of list)await coverFromBackup(n,obj.covers&&obj.covers[n.id]);
+  data.games=list;persist();render();
+  for(const n of list)if(!n.hasCover&&n.coverSrc){await setCoverFromUrl(n,n.coverSrc);refreshCover(n)}
+  gcCovers();
+}
+let allT;
+function disarmAll(){clearTimeout(allT);$('#allClear').classList.remove('armed');$('#allClearSub').textContent='게임과 커버를 모두 지워요'}
+$('#allClear').onclick=()=>{
+  const b=$('#allClear');
+  if(!b.classList.contains('armed')){b.classList.add('armed');$('#allClearSub').textContent='한 번 더 누르면 모두 지워져요';allT=setTimeout(disarmAll,3000);return}
+  const prev=data.games;data.games=[];persist();hide();
+  toast('모든 기록을 지웠어요',()=>{data.games=prev;persist();render()});
+};
+let armT;const del=$('#dDel');
+function disarm(){clearTimeout(armT);del.classList.remove('armed');del.textContent='게임 삭제'}
+del.onclick=()=>{
+  if(!del.classList.contains('armed')){del.classList.add('armed');del.textContent='한 번 더 누르면 삭제돼요';armT=setTimeout(disarm,2500);return}
+  const i=data.games.indexOf(cur);if(i<0)return;const [g]=data.games.splice(i,1);persist();hide();
+  toast('삭제했어요',()=>{data.games.push(g);persist();render()});
+};
+function clearExamples(){const ex=data.games.filter(g=>g.ex);data.games=data.games.filter(g=>!g.ex);persist();render();
+  toast('예시 게임을 지웠어요',()=>{data.games.push(...ex);persist();render()})}
+$('#sampleClear').onclick=clearExamples;
+
+/* toast */
+let tT,undo=null;
+function toast(msg,fn){$('#toastText').textContent=msg;undo=fn||null;$('#undoBtn').hidden=!fn;$('#toast').classList.add('show');clearTimeout(tT);
+  tT=setTimeout(()=>{$('#toast').classList.remove('show');if(fn&&undo===fn){undo=null;gcCovers()}},fn?4500:2000)}
+$('#undoBtn').onclick=()=>{if(undo){undo();undo=null}$('#toast').classList.remove('show')};
+
+/* auto backup (shared/cloud.js) */
+if(window.Cloud)Cloud.init({file:'games.json',getData:cloudData,applyData:cloudApply,hasLocalData:()=>data.games.some(g=>!g.ex),toast:m=>toast(m),onState:()=>setFoot(),
+  vars:{'--cl-bg':'var(--raise)','--cl-bg2':'var(--raise-2)','--cl-on':'var(--surface)','--cl-ok':'var(--clear)','--cl-warn':'var(--drop)'}});
+
+/* open: load saved covers first, then draw once */
+(async()=>{
+  try{for(const k of await idb.keys())if(!urls[k]){const b=await idb.get(k);if(b)urls[k]=URL.createObjectURL(b)}}catch(e){}
+  render();fetchExampleCovers();setTimeout(gcCovers,3000);
+})();
+})();
+</script>
+<script>
+if('serviceWorker' in navigator){
+  // A new version takes over when the server has one; reload into it, but never while a sheet is open.
+  let current=navigator.serviceWorker.controller, pending=false;
+  const reload=()=>{if(document.body.classList.contains('lock')){pending=true;return}location.reload()};
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!current){current=navigator.serviceWorker.controller;return}reload()});
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
+    const check=()=>reg.update().catch(()=>{});
+    document.addEventListener('visibilitychange',()=>{
+      if(document.visibilityState==='visible')check();
+      else if(pending)location.reload();
+    });
+    setInterval(check,30*60*1000);
+  }).catch(()=>{});
+}
+if(navigator.storage&&navigator.storage.persist){navigator.storage.persist().catch(()=>{})}
+</script>
+</body>
+</html>

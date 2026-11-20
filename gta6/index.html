@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>GTA 6 카운트다운</title>
+<meta name="theme-color" content="#0e061e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GTA 6">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+/* Layout: Rockstar's official phone wallpaper fills the screen with the two leads' faces in the upper half.
+   The countdown sits at the bottom on a dusk fade: sunset-colored digits (gold → orange → pink, the game's own palette),
+   thin colons between units, warm labels, and the official GTA VI logo (wordmark over the gradient VI) at the top. */
+:root{
+  --ink:#ffffff; --warm:#ffd1a3; --warm-2:rgba(255,209,163,.62); --sky:#7b6aa8; --night:14,6,30;
+  --sun-1:#ffe08a; --sun-2:#ff9a5a; --sun-3:#ff4f8b;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue","Apple SD Gothic Neo",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{background:rgb(var(--night))}
+/* everything is ordinary page content (absolute inside body), not fixed to the viewport. In an iOS home-screen app the
+   viewport is laid out shorter than the screen (812 of 874 on iPhone 16 Pro), so the body is made as tall as the screen
+   itself (--H, set from screen.height by the script) and the page simply extends to the bottom edge. */
+html{margin:0;overscroll-behavior:none}
+body{margin:0;position:relative;height:var(--H,100dvh);overflow:hidden;color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none}
+/* layers, back to front: artwork, logo, the two characters cut out of the same artwork (so the logo sits behind them), fade, countdown */
+.bg,.fg{position:absolute;left:0;right:0;top:0;bottom:0;background:url("bg-phone.jpg") center 74%/cover no-repeat}
+.bg{background-color:var(--sky)}
+.fg{background-image:url("fg-phone.webp");pointer-events:none}
+@media (min-aspect-ratio:4/5){.bg,.fg{background-position:center 30%}.bg{background-image:url("bg-wide.jpg")}.fg{background-image:url("fg-wide.webp")}}
+.shade{position:absolute;left:0;right:0;bottom:0;height:62%;background:linear-gradient(to top,rgba(var(--night),.96) 0%,rgba(var(--night),.84) 34%,rgba(var(--night),.45) 64%,rgba(var(--night),0) 100%)}
+main{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;
+  padding:0 max(16px,env(safe-area-inset-right,0px)) calc(48px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+/* a soft sunset glow behind the numbers ties them to the sky above */
+main::before{content:"";position:absolute;left:50%;bottom:22%;width:120%;height:70%;transform:translateX(-50%);z-index:-1;
+  background:radial-gradient(closest-side,rgba(255,96,128,.2),rgba(255,96,128,0));pointer-events:none}
+h1{margin:0;font-size:20px;font-weight:800;letter-spacing:.01em;text-shadow:0 1px 12px rgba(var(--night),.8)}
+h1{font-size:17px;font-weight:700;letter-spacing:.12em;text-indent:.12em;color:var(--warm)}
+.count{display:flex;align-items:flex-start;justify-content:center;gap:min(1.6vw,10px)}
+.unit{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0}
+/* gradient fill is on each glyph (so rolling digits keep it); the glow is on the whole number */
+.fill,.done{background:linear-gradient(180deg,var(--sun-1) 8%,var(--sun-2) 48%,var(--sun-3) 92%);-webkit-background-clip:text;background-clip:text;color:transparent}
+/* the glow is a still layer behind the numbers: a filter on the moving digits re-renders every frame and flickers */
+.count{position:relative;isolation:isolate}
+.count::before{content:"";position:absolute;inset:-18% -22% 6%;z-index:-1;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(255,79,139,.32),rgba(255,154,90,.12) 60%,rgba(255,79,139,0));filter:blur(14px)}
+.done{filter:drop-shadow(0 8px 22px rgba(255,79,139,.28))}
+/* each digit is a slot; on change the new digit rolls down from above while the old one rolls out below */
+.slot{display:inline-block;height:.92em;overflow:hidden;vertical-align:top}
+.reel{display:flex;flex-direction:column}
+.reel i{display:block;height:.92em;font-style:normal}
+.reel.go{transition:transform .5s cubic-bezier(.22,.9,.25,1.05)}
+.unit b{display:flex;font-size:min(15.5vw,112px);font-weight:900;line-height:.92;letter-spacing:-.04em;font-variant-numeric:tabular-nums;padding:0 .02em}
+.unit>span{font-size:12px;font-weight:700;letter-spacing:.16em;text-indent:.16em;color:var(--warm-2)}
+.colon{font-size:min(10vw,72px);font-weight:300;line-height:1.2;color:var(--warm-2);opacity:.75}
+.logo{position:absolute;left:50%;top:calc(26px + env(safe-area-inset-top,0px));width:min(60vw,360px);transform:translateX(-50%);
+  filter:drop-shadow(0 6px 22px rgba(40,10,70,.4))}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.done{font-size:min(16vw,104px);font-weight:900;letter-spacing:-.03em;line-height:1}
+.credit{position:absolute;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));font-size:10px;color:rgba(255,255,255,.42)}
+@media (prefers-reduced-motion:reduce){.reel.go{transition:none}}
+/* wide screens: the logo moves to the upper left, over the city, so it stays off the characters */
+@media (min-aspect-ratio:4/5){.logo{left:max(5vw,24px);transform:none;width:min(26vw,380px);top:calc(5vh + env(safe-area-inset-top,0px))}}
+</style>
+</head>
+<body>
+<div class="bg" role="img" aria-label="GTA VI 공식 아트워크: 옥상 위의 제이슨과 루시아"></div>
+<img class="logo" src="logo-gta6.png" alt="Grand Theft Auto VI">
+<div class="fg" aria-hidden="true"></div>
+<div class="shade"></div>
+<main>
+  <h1><span class="vh">GTA 6 </span><span id="sub">출시까지</span></h1>
+  <div id="count" class="count">
+    <div class="unit" id="dUnit"><b class="sun" id="d">0</b><span>일</span></div><span class="colon" id="dColon">:</span>
+    <div class="unit"><b class="sun" id="h">00</b><span>시간</span></div><span class="colon">:</span>
+    <div class="unit"><b class="sun" id="m">00</b><span>분</span></div><span class="colon">:</span>
+    <div class="unit"><b class="sun" id="s">00</b><span>초</span></div>
+  </div>
+</main>
+<div class="credit">Artwork © Rockstar Games</div>
+<script>
+// Rockstar: unlocks at midnight local time on 19 Nov 2026 in every region. Korea (UTC+9) → 2026-11-19 00:00 KST.
+const LAUNCH=Date.UTC(2026,10,18,15,0,0);
+const $=id=>document.getElementById(id);
+const p2=n=>String(n).padStart(2,'0');
+const prev={};
+function put(id,v){
+  const el=$(id),old=prev[id];if(old===v)return;prev[id]=v;
+  if(old===undefined||old.length!==v.length){ /* first draw or width change: no animation */
+    el.innerHTML=[...v].map(c=>`<span class="slot"><span class="reel"><i class="fill">${c}</i></span></span>`).join('');return;
+  }
+  [...v].forEach((c,i)=>{
+    if(c===old[i])return;
+    const slot=el.children[i],reel=document.createElement('span');
+    reel.className='reel';reel.innerHTML=`<i class="fill">${c}</i><i class="fill">${old[i]}</i>`;
+    reel.style.transform='translateY(-50%)';slot.replaceChildren(reel);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{reel.classList.add('go');reel.style.transform='translateY(0)'}));
+    reel.addEventListener('transitionend',()=>{reel.classList.remove('go');reel.style.transform='';reel.innerHTML=`<i class="fill">${c}</i>`},{once:true});
+  });
+}
+function frame(){
+  const left=LAUNCH-Date.now();
+  if(left<=0){
+    $('count').innerHTML='<div class="done sun">지금 플레이</div>';$('sub').textContent='출시됐어요';
+    setTimeout(frame,30000);return;
+  }
+  const t=Math.floor(left/1000),d=Math.floor(t/86400),h=Math.floor(t%86400/3600),m=Math.floor(t%3600/60),s=t%60;
+  $('dUnit').hidden=$('dColon').hidden=d===0;
+  put('d',String(d));put('h',p2(h));put('m',p2(m));put('s',p2(s));
+  setTimeout(frame,1000-Date.now()%1000+5);
+}
+frame();
+// home-screen app, portrait: make the page exactly as tall as the screen
+function fit(){const r=document.documentElement.style;
+  if(navigator.standalone&&screen.height>screen.width&&innerHeight>innerWidth)r.setProperty('--H',screen.height+'px');else r.removeProperty('--H')}
+fit();addEventListener('resize',fit);
+addEventListener('touchmove',e=>e.preventDefault(),{passive:false}); /* the page is a poster: no scrolling or rubber-banding */
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){for(const k in prev)delete prev[k];}});
+</script>
+</body>
+</html>

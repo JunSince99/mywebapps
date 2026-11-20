@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>웹앱</title>
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1013" media="(prefers-color-scheme: dark)">
+<style>
+:root{--bg:#ffffff;--ink:#15171c;--ink-2:#6c7180;--ink-3:#a8acb7;--line:#eceef2;--fill:#f2f3f6;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1013;--ink:#f2f3f5;--ink-2:#989dab;--ink-3:#5f6470;--line:#212329;--fill:#24262c;color-scheme:dark}}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font:15px/1.4 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
+main{max-width:440px;margin:0 auto;padding:calc(28px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}
+h1{margin:0 0 4px;font-size:28px;font-weight:700;letter-spacing:-.02em}
+p{margin:0 0 20px;color:var(--ink-2);font-size:14px}
+.app{display:grid;grid-template-columns:52px minmax(0,1fr) 18px;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);color:inherit;text-decoration:none}
+.app:last-child{border-bottom:0}
+.app img,.ph{width:52px;height:52px;border-radius:12px;box-shadow:0 0 0 .5px rgba(0,0,0,.12)}
+.ph{display:grid;place-items:center;background:var(--fill);font-weight:700}
+.txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.txt b{font-size:16px;font-weight:600}
+.txt small{font-size:13px;color:var(--ink-2)}
+.app svg{width:18px;height:18px;color:var(--ink-3)}
+</style>
+</head>
+<body>
+<main>
+<h1>웹앱</h1>
+<p>Safari에서 앱을 열고 공유 → 홈 화면에 추가하면 앱처럼 쓸 수 있어요.</p>
+  <a class="app" href="expense/">
+    <img src="expense/icons/apple-touch-icon.png" alt="" width="52" height="52">
+    <span class="txt"><b>지출 기록</b><small>지출만 빠르게 기록하는 가계부</small></span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+  </a>
+  <a class="app" href="games/">
+    <img src="games/icons/apple-touch-icon.png" alt="" width="52" height="52">
+    <span class="txt"><b>게임</b><small>산 게임, 하는 중인 게임, 엔딩 본 게임을 커버로 정리해요</small></span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+  </a>
+  <a class="app" href="gta6/">
+    <span class="ph">G</span>
+    <span class="txt"><b>GTA 6 카운트다운</b><small>한국 시간 11월 19일 00:00 출시까지</small></span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+  </a>
+</main>
+</body>
+</html>
