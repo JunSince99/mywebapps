@@ -38,7 +38,7 @@ svg{display:block}
    status bar, so the bar is pulled up by the same amount (like the games app backdrop) to avoid a double gap; clear at the top, frosted glass once the page scrolls under it */
 .topbar{position:sticky;top:0;z-index:5;padding-top:env(safe-area-inset-top,0px);margin-top:calc(-1 * env(safe-area-inset-top,0px));
   padding-left:var(--gl);padding-right:var(--gr);background:transparent;transition:background-color .2s,box-shadow .2s}
-.topbar.scrolled{background:color-mix(in srgb,var(--bg) 72%,transparent);
+.topbar.scrolled{background:color-mix(in srgb,var(--bg) 55%,transparent);
   -webkit-backdrop-filter:saturate(1.6) blur(20px);backdrop-filter:saturate(1.6) blur(20px);box-shadow:0 1px 0 var(--line)}
 .topbar-in{max-width:440px;margin:0 auto;height:52px;display:flex;align-items:center;justify-content:space-between}
 .mnav{flex:1;display:flex;align-items:center;justify-content:space-between;margin:0 -10px}
@@ -173,7 +173,7 @@ button.tile:active{transform:scale(.97)}
 /* tab bar */
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;
   padding-left:var(--gl);padding-right:var(--gr);padding-bottom:env(safe-area-inset-bottom,0px);
-  background:color-mix(in srgb,var(--bg) 86%,transparent);
+  background:color-mix(in srgb,var(--bg) 70%,transparent);
   -webkit-backdrop-filter:saturate(1.6) blur(18px);backdrop-filter:saturate(1.6) blur(18px);
   border-top:1px solid var(--line)}
 .tabbar-in{max-width:440px;margin:0 auto;height:62px;display:grid;grid-template-columns:1fr 72px 1fr;align-items:center}
