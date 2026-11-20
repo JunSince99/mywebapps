@@ -517,11 +517,11 @@ function budgetHTML(spent){
     label=over?'예산을 넘었어요':`남은 ${days}일 동안 하루에`;
     big=over?`<span class="bad">+${won(-left)}</span><small>원</small>`:`${won(per)}<small>원</small>`;
     rows=[['한 달 예산',`${won(b)}원`],[over?'초과':'남은 돈',`<span class="${over?'bad':''}">${won(Math.abs(left))}원</span>`],
-      ['처음 계획한 하루',`${won(Math.floor(b/n/10)*10)}원`]];
+      ['하루 예산',`${won(Math.floor(b/n/10)*10)}원`]];
   }else{
     label=over?'예산을 넘었어요':'예산 안에서 썼어요';
     big=`${won(Math.abs(left))}<small>원 ${over?'초과':'남음'}</small>`;
-    rows=[['한 달 예산',`${won(b)}원`],['하루 평균',`${won(Math.round(spent/n))}원`],['예산 기준 하루',`${won(Math.floor(b/n/10)*10)}원`]];
+    rows=[['한 달 예산',`${won(b)}원`],['하루 평균',`${won(Math.round(spent/n))}원`],['하루 예산',`${won(Math.floor(b/n/10)*10)}원`]];
   }
   return `<div class="sec bsec"><h3>예산</h3><div class="b-label">${label}</div><div class="g-total">${big}</div>`+
     `<div class="bar${over?' over':''}"><i style="width:${pct}%"></i></div>`+
