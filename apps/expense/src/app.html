@@ -34,8 +34,9 @@ svg{display:block}
 .vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 
 /* top bar */
-/* the bar reaches up through the status bar area; clear at the top, frosted glass once the page scrolls under it */
-.topbar{position:sticky;top:0;z-index:5;padding-top:env(safe-area-inset-top,0px);
+/* the bar reaches up through the status bar area. At the top of the page iOS already starts the page below the
+   status bar, so the bar is pulled up by the same amount (like the games app backdrop) to avoid a double gap; clear at the top, frosted glass once the page scrolls under it */
+.topbar{position:sticky;top:0;z-index:5;padding-top:env(safe-area-inset-top,0px);margin-top:calc(-1 * env(safe-area-inset-top,0px));
   padding-left:var(--gl);padding-right:var(--gr);background:transparent;transition:background-color .2s,box-shadow .2s}
 .topbar.scrolled{background:color-mix(in srgb,var(--bg) 72%,transparent);
   -webkit-backdrop-filter:saturate(1.6) blur(20px);backdrop-filter:saturate(1.6) blur(20px);box-shadow:0 1px 0 var(--line)}
