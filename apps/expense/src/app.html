@@ -69,6 +69,15 @@ button.tile:active{transform:scale(.97)}
 .tile-sub{display:flex;align-items:center;gap:1px;font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums;white-space:nowrap}
 .tile-sub .on{color:var(--good)}
 .tile-sub svg{width:13px;height:13px}
+/* budget: remaining money and a per-day allowance under the month total */
+.budget{margin-top:14px}
+.bar{height:6px;border-radius:3px;background:var(--fill);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px;background:var(--good);transition:width .3s}
+.bar.over i{background:var(--bad)}
+.budget-txt{display:flex;justify-content:space-between;gap:8px;margin-top:7px;font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.budget-txt b{color:var(--ink);font-weight:600}
+.home-cm{margin-top:8px}
+.home-cm .cm{background:var(--tile)}
 .view.enter{animation:enter .28s var(--ease)}
 @keyframes enter{from{opacity:0;transform:translateY(6px)}}
 
@@ -236,6 +245,9 @@ button.g-row:active{opacity:.6}
 .srow b{font-size:15.5px;font-weight:500}
 .srow small{font-size:12.5px;color:var(--ink-2)}
 .srow svg{flex:none;width:18px;height:18px;color:var(--ink-3)}
+.segctl.kp{grid-template-columns:repeat(3,1fr)}
+.segctl.kp button{font-size:13px}
+.snote{margin:10px 2px 0;font-size:12.5px;line-height:1.5;color:var(--ink-2)}
 .srow.danger b{color:var(--bad)}
 .srow.danger.armed small{color:var(--bad);font-weight:600}
 .sfoot{margin:0;padding-bottom:4px;font-size:12.5px;line-height:1.5;color:var(--ink-3)}
@@ -270,10 +282,12 @@ button.g-row:active{opacity:.6}
     <div class="hero-label" id="heroLabel"></div>
     <div class="hero-total" id="heroTotal"></div>
     <div class="hero-sub" id="heroSub"></div>
+    <div class="budget" id="budget" hidden></div>
     <div class="tiles">
       <button class="tile" id="tileSub"></button>
       <button class="tile" id="tileTransit"></button>
     </div>
+    <div id="homeCm"></div>
   </div>
   <section class="view" id="view-list">
     <div class="banner" id="sampleBanner" hidden>
@@ -355,6 +369,18 @@ button.g-row:active{opacity:.6}
     </div>
   </div>
   <div class="sgroup">
+    <h3>한 달 예산</h3>
+    <button class="srow" id="budgetBtn" style="border-bottom:0;padding-top:0">
+      <span><b id="budgetVal">정하지 않음</b><small>홈에서 남은 돈과 하루에 쓸 수 있는 금액을 보여줘요</small></span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+  <div class="sgroup">
+    <h3>K-패스 (모두의 카드) 유형</h3>
+    <div class="segctl kp" id="kpCtl"></div>
+    <p class="snote">교통 화면의 예상 환급액 계산에 써요. 수도권·일반형 기준이에요.</p>
+  </div>
+  <div class="sgroup">
     <h3>자동 백업</h3>
     <div id="cloudBox"></div>
   </div>
@@ -434,6 +460,7 @@ function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}if(window.Cloud)Cloud.changed()}
 let data=load()||{items:[]};
 if(!data.refunds||typeof data.refunds!=='object')data.refunds={};
+if(!data.kpass)data.kpass='general';
 data.items.forEach(i=>{i.cat=mapCat(i.cat)});
 /* v2: the old app's "clothing" was imported as 쇼핑; it has its own 의류 category now */
 if(!(data.v>=2)){data.items.forEach(i=>{if(String(i.id).startsWith('m-')&&i.cat==='shop')i.cat='clothing'});data.v=2;persist()}
@@ -452,7 +479,17 @@ function render(){
   $('#heroTotal').innerHTML=`${won(sum(items)-refund)}<small>원</small>`;
   const cmp=compare(items,refund); $('#heroSub').innerHTML=cmp; $('#heroSub').hidden=!cmp;
   renderTiles(items,refund);
+  $('#homeCm').innerHTML=isCur()?commuteHTML().replace('class="commute"','class="commute home-cm"'):'';
+  renderBudget(sum(items)-refund);
   if(tab==='list')renderList(items);else renderStats(items,refund);
+}
+function renderBudget(spent){
+  const el=$('#budget'), b=data.budget||0; el.hidden=!b; if(!b)return;
+  const left=b-spent, pct=Math.min(100,spent/b*100), over=left<0;
+  let right;
+  if(isCur()){const days=new Date(vy,vm+1,0).getDate()-today.getDate()+1;right=over?'':`하루 <b>${won(Math.floor(left/days/10)*10)}원</b>씩`}
+  else right=`예산 ${won(b)}원`;
+  el.innerHTML=`<div class="bar${over?' over':''}"><i style="width:${pct}%"></i></div><div class="budget-txt"><span>${over?`예산보다 <b class="bad">${won(-left)}원</b> 더 썼어요`:`남은 돈 <b>${won(left)}원</b>`}</span><span>${right}</span></div>`;
 }
 function compare(items,refund){
   const py=vm===0?vy-1:vy, pm=vm===0?11:vm-1;
@@ -589,20 +626,21 @@ function sheetDate(s){
   return `${d.getMonth()+1}월 ${d.getDate()}일 (${DOW[d.getDay()]})`;
 }
 function renderSheet(){
-  const ref=S.mode==='refund';
-  $('#sheetTitle').textContent=ref?'K-패스 환급':S.id?'지출 수정':'새 지출';
+  const ref=S.mode==='refund'||S.mode==='budget', bud=S.mode==='budget';
+  $('#sheetTitle').textContent=bud?'한 달 예산':ref?'K-패스 환급':S.id?'지출 수정':'새 지출';
   $('#dateBox').hidden=ref; $('#cats').hidden=ref; memo.hidden=ref; $('#sheetNote').hidden=!ref;
-  if(ref){const m=+S.rkey.slice(5);$('#sheetNote').textContent=`환급받은 금액을 ${m}월 교통비에서 빼고, 총 지출에도 반영해요.`}
-  $('#phText').textContent=ref?'환급받은 금액':'얼마 썼나요?';
+  if(bud)$('#sheetNote').textContent='매달 이만큼 안에서 쓰는 걸 목표로 해요. 환급을 뺀 지출로 계산해요.';
+  else if(ref){const m=+S.rkey.slice(5);$('#sheetNote').textContent=`환급받은 금액을 ${m}월 교통비에서 빼고, 총 지출에도 반영해요.`}
+  $('#phText').textContent=bud?'한 달 예산':ref?'환급받은 금액':'얼마 썼나요?';
   $('#dLabel').textContent=sheetDate(S.date);
   $('#dNext').disabled=S.date>=TODAY;
   amountEl.classList.toggle('empty',!S.amt);
   amountEl.classList.toggle('long',S.amt.length>7);
   $('#amtNum').textContent=S.amt?won(S.amt):'0';
   document.querySelectorAll('.cat').forEach(b=>{const on=b.dataset.cat===S.cat;b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on))});
-  delBtn.hidden=ref?!data.refunds[S.rkey]:!S.id;
+  delBtn.hidden=bud?!data.budget:ref?!data.refunds[S.rkey]:!S.id;
   const n=Number(S.amt||0);
-  if(ref){saveBtn.disabled=!(n>0);saveBtn.textContent=n>0?'반영하기':'금액을 입력하세요';return}
+  if(ref){saveBtn.disabled=!(n>0);saveBtn.textContent=n>0?(bud?'정하기':'반영하기'):'금액을 입력하세요';return}
   saveBtn.disabled=!(n>0&&S.cat);
   saveBtn.textContent=n<=0?'금액을 입력하세요':!S.cat?'카테고리를 고르세요':S.id?'수정하기':'기록하기';
 }
@@ -614,6 +652,10 @@ function openExpense(item,back,presetCat){
 }
 function openRefund(back){
   S.mode='refund'; S.back=back||null; S.rkey=mkey(vy,vm); S.amt=data.refunds[S.rkey]?String(data.refunds[S.rkey]):'';
+  disarm(); renderSheet(); showSheet(sheet);
+}
+function openBudget(){
+  S.mode='budget'; S.back=null; S.amt=data.budget?String(data.budget):'';
   disarm(); renderSheet(); showSheet(sheet);
 }
 function press(k){
@@ -628,6 +670,7 @@ function press(k){
 function shiftDate(k){const d=parse(S.date);d.setDate(d.getDate()+k);const s=ymd(d);if(s>TODAY)return;S.date=s;renderSheet()}
 function save(){
   const n=Number(S.amt);
+  if(S.mode==='budget'){if(!(n>0))return;data.budget=n;persist();hideSheet();render();toast(`한 달 예산을 ${won(n)}원으로 정했어요`);return}
   if(S.mode==='refund'){
     if(!(n>0))return;
     data.refunds[S.rkey]=n; persist(); finish(); toast('K-패스 환급을 반영했어요'); return;
@@ -649,6 +692,8 @@ let armT;
 function disarm(){clearTimeout(armT);delBtn.classList.remove('armed');delBtn.textContent='삭제'}
 delBtn.onclick=()=>{
   if(!delBtn.classList.contains('armed')){delBtn.classList.add('armed');delBtn.textContent='정말 삭제';armT=setTimeout(disarm,2500);return}
+  if(S.mode==='budget'){const prev=data.budget;delete data.budget;persist();hideSheet();render();
+    toast('예산을 지웠어요',()=>{data.budget=prev;persist();render()});return}
   if(S.mode==='refund'){
     const k=S.rkey, prev=data.refunds[k]; delete data.refunds[k]; persist(); finish();
     toast('환급을 지웠어요',()=>{data.refunds[k]=prev;persist();render()}); return;
@@ -674,9 +719,26 @@ function commuteHTML(){
     return `<button class="cm${on?' on':''}" data-cm="${k}" aria-pressed="${on}">${on?'오늘 기록됨 ✓':name}<small>${on?name+' · 다시 누르면 취소':won(FARE)+'원'}</small></button>`}).join('')+'</div>';
 }
 function toggleCommute(k){
+  const after=()=>{persist();render();if(openEl===group)renderGroup()};
   const it=commuteToday(k);
-  if(it){data.items=data.items.filter(i=>i!==it);persist();render();renderGroup();toast(`오늘 ${COMMUTE[k]} 기록을 취소했어요`)}
-  else{data.items.push({id:uid(),amount:FARE,cat:'transit',memo:COMMUTE[k],date:TODAY,ts:Date.now(),commute:k});persist();render();renderGroup();toast(`오늘 ${COMMUTE[k]} ${won(FARE)}원 기록했어요`)}
+  if(it){data.items=data.items.filter(i=>i!==it);after();toast(`오늘 ${COMMUTE[k]} 기록을 취소했어요`)}
+  else{data.items.push({id:uid(),amount:FARE,cat:'transit',memo:COMMUTE[k],date:TODAY,ts:Date.now(),commute:k});after();toast(`오늘 ${COMMUTE[k]} ${won(FARE)}원 기록했어요`)}
+}
+/* K-패스 refund estimate (2026, 수도권 · 일반형). Needs 15+ rides in the month. The larger of:
+   기본형: a share of the fares (rate by group), and 모두의 카드: everything above the monthly base amount.
+   Sources: 국토교통부 모두의카드 안내, 정책브리핑 (기준금액 일반 6.2만/청년·2자녀·어르신 5.5만/3자녀·저소득 4.5만;
+   환급률 일반 20%, 청년·2자녀·어르신 30%, 3자녀 50%, 저소득 53.3%). The temporary 50% cut ran April–September 2026. */
+const KP={general:{name:'일반',rate:.2,base:62000},youth:{name:'청년',rate:.3,base:55000},senior:{name:'어르신·2자녀',rate:.3,base:55000},
+  multi:{name:'3자녀 이상',rate:.5,base:45000},low:{name:'저소득',rate:.533,base:45000}};
+const KP_MIN=15, KP_MAX=60, KP_KEYS=Object.keys(KP);
+function kpEstimate(items,y,m){
+  const k=KP[data.kpass]||KP.general, rides=items.length, gross=sum(items);
+  const half=y===2026&&m>=3&&m<=8; /* April–September 2026: base amounts halved */
+  const base=half?k.base/2:k.base;
+  if(rides<KP_MIN)return {rides,amt:0,how:''};
+  const counted=rides>KP_MAX?gross*KP_MAX/rides:gross;
+  const rate=Math.floor(counted*k.rate/10)*10, flat=Math.max(0,gross-base);
+  return flat>rate?{rides,amt:flat,how:`모두의 카드 · 기준 ${won(base)}원 초과분`}:{rides,amt:rate,how:`기본형 · ${Math.round(k.rate*1000)/10}% 환급`};
 }
 function renderGroup(){
   const c=CAT[G], items=monthItems(vy,vm).filter(i=>i.cat===G).sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
@@ -684,13 +746,15 @@ function renderGroup(){
   $('#gTitle').textContent=`${vm+1}월 ${c.name}`;
   $('#gSummary').innerHTML=`<div class="g-total">${won(gross-refund)}<small>원</small></div><div class="g-meta">${items.length}건${G==='transit'?' · K-패스 환급 반영':''}</div>`+
     (G==='transit'?commuteHTML():'')+(G==='transit'?`<div class="g-rows" style="margin-top:14px"><div class="g-row"><span>사용 금액</span><span>${won(gross)}원</span></div>`+
-      `<button class="g-row" id="gRefund"><span>K-패스 환급</span><span>${refund?`<span class="good">−${won(refund)}원</span>`:'입력하기'}${CHEV}</span></button></div>`:'');
+      (()=>{const e=kpEstimate(items,vy,vm);return `<div class="g-row"><span>예상 환급 <small style="display:block;font-size:12px;color:var(--ink-3)">${e.amt?e.how:`${e.rides}회 탐 · ${KP_MIN}회부터 환급`} · ${(KP[data.kpass]||KP.general).name}</small></span><span>${e.amt?`<span class="good">−${won(e.amt)}원</span>`:'0원'}</span></div>`})()+
+      `<button class="g-row" id="gRefund"><span>실제 환급</span><span>${refund?`<span class="good">−${won(refund)}원</span>`:'입력하기'}${CHEV}</span></button></div>`:'');
   $('#gList').innerHTML=items.length
     ?items.map(i=>{const d=parse(i.date);return rowHTML(i,`${d.getDate()}일 ${DOW[d.getDay()]}요일`)}).join('')
     :`<div class="g-empty">${vm+1}월 ${c.name} 기록이 없어요</div>`;
 }
 $('#tileSub').onclick=()=>openGroup('sub');
 $('#tileTransit').onclick=()=>openGroup('transit');
+$('#homeCm').addEventListener('click',e=>{const cm=e.target.closest('[data-cm]');if(cm)toggleCommute(cm.dataset.cm)});
 $('#gAdd').onclick=()=>openExpense(null,G,G);
 group.addEventListener('click',e=>{
   const cm=e.target.closest('[data-cm]');if(cm){toggleCommute(cm.dataset.cm);return}
@@ -742,7 +806,12 @@ $('#themeCtl').addEventListener('click',e=>{
 });
 
 /* settings */
+$('#kpCtl').innerHTML=Object.entries(KP).map(([k,v])=>`<button data-kp="${k}" aria-pressed="false">${v.name}</button>`).join('');
+$('#kpCtl').addEventListener('click',e=>{const b=e.target.closest('[data-kp]');if(!b)return;data.kpass=b.dataset.kp;persist();renderSettings()});
+$('#budgetBtn').onclick=openBudget;
 function renderSettings(){
+  document.querySelectorAll('#kpCtl button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.kp===data.kpass)));
+  $('#budgetVal').textContent=data.budget?`월 ${won(data.budget)}원`:'정하지 않음';
   document.querySelectorAll('#themeCtl button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.opt===getTheme())));
   setFoot();
   if(window.Cloud)Cloud.mount($('#cloudBox'));
@@ -768,7 +837,8 @@ function parseBackup(obj){
     Object.entries(obj.refunds||{}).forEach(([k,v])=>{if(/^\d{4}-\d{2}$/.test(k)&&Number(v)>0)refunds[k]=Math.round(Number(v))});
     return {refunds,items:obj.items
       .filter(i=>i&&i.id!=null&&Number(i.amount)>0&&okDate(i.date))
-      .map(i=>({id:String(i.id),amount:Math.round(Number(i.amount)),cat:mapCat(i.cat),memo:String(i.memo||'').slice(0,60),date:i.date,ts:Number(i.ts)||Date.now()}))};
+      .map(i=>({id:String(i.id),amount:Math.round(Number(i.amount)),cat:mapCat(i.cat),memo:String(i.memo||'').slice(0,60),date:i.date,ts:Number(i.ts)||Date.now(),...(i.commute==='in'||i.commute==='out'?{commute:i.commute}:{})})),
+      budget:Number(obj.budget)>0?Math.round(Number(obj.budget)):0,kpass:KP_KEYS.includes(obj.kpass)?obj.kpass:null};
   }
   return null;
 }
@@ -786,7 +856,7 @@ $('#importFile').addEventListener('change',async e=>{
   toast(skipped?`${added}건 가져옴, 중복 ${skipped}건 제외`:`${added}건을 가져왔어요`);
 });
 $('#exportBtn').onclick=async()=>{
-  const payload={format:'expense-backup',version:1,exportedAt:new Date().toISOString(),items:data.items.filter(i=>!i.ex),refunds:data.refunds};
+  const payload={format:'expense-backup',version:1,exportedAt:new Date().toISOString(),items:data.items.filter(i=>!i.ex),refunds:data.refunds,budget:data.budget||0,kpass:data.kpass};
   const name=`expense-backup-${TODAY}.json`;
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   try{
@@ -819,9 +889,9 @@ undoBtn.onclick=()=>{if(undoFn){undoFn();undoFn=null}toastEl.classList.remove('s
 
 /* auto backup (shared/cloud.js) */
 if(window.Cloud)Cloud.init({file:'expense.json',
-  getData:()=>({format:'expense-backup',version:1,exportedAt:new Date().toISOString(),items:data.items.filter(i=>!i.ex),refunds:data.refunds}),
+  getData:()=>({format:'expense-backup',version:1,exportedAt:new Date().toISOString(),items:data.items.filter(i=>!i.ex),refunds:data.refunds,budget:data.budget||0,kpass:data.kpass}),
   hasLocalData:()=>data.items.some(i=>!i.ex),
-  applyData:obj=>{const b=parseBackup(obj);if(!b)throw new Error('format');data={items:b.items,refunds:b.refunds,v:2};persist();statSel=null;render();renderSettings()},
+  applyData:obj=>{const b=parseBackup(obj);if(!b)throw new Error('format');data={items:b.items,refunds:b.refunds,v:2,kpass:b.kpass||data.kpass||'general',...(b.budget?{budget:b.budget}:{})};persist();statSel=null;render();renderSettings()},
   toast:m=>toast(m),onState:()=>setFoot(),
   vars:{'--cl-bg':'var(--fill)','--cl-bg2':'var(--fill-2)','--cl-on':'var(--bg)','--cl-ok':'var(--good)','--cl-warn':'var(--bad)'}});
 
